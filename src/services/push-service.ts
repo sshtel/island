@@ -24,7 +24,14 @@ export default class PushService {
     option: {
       durable: true
     }
-  }
+  };
+
+  public static autoDeleteTriggerQueue = {
+    name: 'auto-delete.trigger',
+    options: {
+      messageTtl: 0
+    }
+  };
 
   constructor() {
     this.msgpack = MessagePack.getInst();
@@ -33,9 +40,10 @@ export default class PushService {
   public async initialize(channelPool: AmqpChannelPoolService): Promise<any> {
     this.channelPool = channelPool;
 
-    return this.channelPool.usingChannel(channel => {
-      return channel.assertExchange(PushService.globalFanoutExchange.name, 'fanout',
+    await this.channelPool.usingChannel(async (channel) => {
+      await channel.assertExchange(PushService.globalFanoutExchange.name, 'fanout',
         PushService.globalFanoutExchange.option);
+      await channel.assertQueue(PushService.autoDeleteTriggerQueue.name, PushService.autoDeleteTriggerQueue.options);
     });
   }
 
@@ -67,12 +75,35 @@ export default class PushService {
    * @param sourceOpts
    * @returns {Promise<any>}
    */
-  bindExchange(destination: string, source: string, pattern?: string, sourceType?: string, sourceOpts?: any) {
+  async bindExchange(destination: string,
+                     source: string,
+                     pattern: string = '',
+                     sourceType: string = 'fanout',
+                     sourceOpts: any = PushService.DEFAULT_EXCHANGE_OPTIONS
+  ): Promise<any> {
     debug(`bind exchanges. (source:${source}) => destination:${destination}`);
-    return this.channelPool.usingChannel(channel => {
-      return channel.assertExchange(source, sourceType || 'fanout', sourceOpts || PushService.DEFAULT_EXCHANGE_OPTIONS)
-        .then(() => channel.bindExchange(destination, source, pattern || '', {}));
-    });
+
+    let sourceDeclared = false;
+    try {
+      await this.channelPool.usingChannel(async (channel) => {
+        await channel.assertExchange(source, sourceType, sourceOpts);
+        sourceDeclared = true;
+        await channel.bindExchange(destination, source, pattern);
+      });
+    } catch (e) {
+      // Auto-delete is triggered only when target exchange(or queue) is unbound or deleted.
+      // If previous bind fails, we can't ensure auto-delete triggered or not.
+      // Below workaround prevents this from happening.
+      // caution: Binding x-recent-history exchange to unroutable target causes connection loss.
+      // target should be a queue and routable.
+      if (sourceDeclared && sourceOpts.autoDelete) {
+        await this.channelPool.usingChannel(async (channel) => {
+          await channel.bindQueue(PushService.autoDeleteTriggerQueue.name, source, '');
+          await channel.unbindQueue(PushService.autoDeleteTriggerQueue.name, source, '');
+        });
+      }
+      throw e;
+    }
   }
 
   /**
