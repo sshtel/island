@@ -1,6 +1,6 @@
 {
   "name": "island",
-  "version": "0.3.15",
+  "version": "0.3.14",
   "description": "A package suite for building microservice using TypeScript.",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -22,7 +22,7 @@
     "cls-bluebird": "^2.0.1",
     "cls-mongoose": "^2.0.1",
     "continuation-local-storage": "^3.2.0",
-    "debug": "2.3.3",
+    "debug": "^2.4.1",
     "inversify": "2.0.0-beta.5",
     "lodash": "^4.16.1",
     "mongoose": "^4.6.1",
