@@ -80,8 +80,13 @@ export default class MessageBrokerService extends AbstractBrokerService {
   }
 
   publish<T>(key: string, msg: T): Promise<void> {
-    return this.checkInitialized()
-      .then(() => this._publish(MessageBrokerService.EXCHANGE_NAME, key, new Buffer(JSON.stringify(msg), 'utf8')));
+    return this.checkInitialized().then(() => {
+      return this._publish(
+        MessageBrokerService.EXCHANGE_NAME,
+        key,
+        new Buffer(JSON.stringify(msg), 'utf8'),
+        { timestamp: +new Date() });
+    });
   }
   
   private checkInitialized(): Promise<void> {
