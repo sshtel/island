@@ -170,14 +170,14 @@ The current lead maintainer is [Kei Son](https://github.com/heycalmdown)
   [MIT](LICENSE)
 
 
-[travis-image]: https://api.travis-ci.org/spearhead-ea/island.svg?branch=release-1.0
+[travis-image]: https://api.travis-ci.org/spearhead-ea/island.svg?branch=release-1.2
 [travis-url]: https://travis-ci.org/spearhead-ea/island
 [npm-image]: https://badge.fury.io/js/island.svg
 [npm-url]: http://badge.fury.io/js/island
 [david-image]: https://david-dm.org/spearhead-ea/island/status.svg
 [david-url]: https://david-dm.org/spearhead-ea/island
-[coveralls-image]: https://coveralls.io/repos/github/spearhead-ea/island/badge.svg?branch=master
-[coveralls-url]: https://coveralls.io/github/spearhead-ea/island?branch=master
+[coveralls-image]: https://coveralls.io/repos/github/spearhead-ea/island/badge.svg?branch=release-1.2
+[coveralls-url]: https://coveralls.io/github/spearhead-ea/island?branch=release-1.2
 [codeclimate-coverage]: https://codeclimate.com/github/spearhead-ea/island/badges/coverage.svg
 [codeclimate-gpa]: https://codeclimate.com/github/spearhead-ea/island/badges/gpa.svg
 [codeclimate-issue]: https://codeclimate.com/github/spearhead-ea/island/badges/issue_count.svg
