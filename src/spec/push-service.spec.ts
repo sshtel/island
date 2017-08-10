@@ -57,7 +57,7 @@ describe('PushService test : ', () => {
     const msg = 'testMessage';
     amqpChannelPool.usingChannel(channel => {
       return channel.consume(destinationQueue, content => {
-        expect(msgpack.decode(content.content)).toBe('testMessage');
+        expect(msgpack.decode(content && content.content)).toBe('testMessage');
       });
     }).then(() => {
       return pushService.unicast(sourceExchange, msg);
@@ -69,7 +69,7 @@ describe('PushService test : ', () => {
     const msg = 'testMessage';
     amqpChannelPool.usingChannel(channel => {
       return channel.consume(destinationQueue, content => {
-        expect(msgpack.decode(content.content)).toBe('testMessage');
+        expect(msgpack.decode(content && content.content)).toBe('testMessage');
       });
     }).then(() => {
       return pushService.multicast(sourceExchange, msg);
