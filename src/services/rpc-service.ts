@@ -232,13 +232,14 @@ export default class RPCService {
       const replyTo = msg.properties.replyTo;
       const headers = msg.properties.headers;
       const tattoo = headers && headers.tattoo;
+      const extra = headers && headers.extra;
       const timestamp = msg.properties.timestamp || 0;
       const log = new TraceLog(tattoo, timestamp);
       this.onGoingRpcRequestCount++;
       log.size = msg.content.byteLength;
       log.from = headers.from;
       log.to = { node: process.env.HOSTNAME, context: name, island: this.serviceName, type: 'rpc' };
-      return enterScope({ RequestTrackId: tattoo, Context: name, Type: 'rpc' }, () => {
+      return enterScope({ RequestTrackId: tattoo, Context: name, Type: 'rpc', sessionType: extra.sessionType }, () => {
         let content = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
         if (rpcOptions) {
           if (_.get(rpcOptions, 'schema.query.sanitization')) {
@@ -364,8 +365,12 @@ export default class RPCService {
     const tattoo = ns.get('RequestTrackId');
     const context = ns.get('Context');
     const type = ns.get('Type');
+    const sessionType = ns.get('sessionType');
     const correlationId = uuid.v4();
     const headers = {
+      extra: {
+        sessionType
+      },
       tattoo,
       from: { node: process.env.HOSTNAME, context, island: this.serviceName, type }
     };

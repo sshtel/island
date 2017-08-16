@@ -120,9 +120,11 @@ export class EventService {
     const tattoo = ns.get('RequestTrackId');
     const context = ns.get('Context');
     const type = ns.get('Type');
+    const sessionType = ns.get('sessionType');
     logger.debug(`publish ${event.key}`, event.args, tattoo);
     const options = {
       headers: {
+        extra: { sessionType },
         tattoo,
         from: { node: process.env.HOSTNAME, context, island: this.serviceName, type }
       },
@@ -190,10 +192,13 @@ export class EventService {
   private async handleMessage(msg: Message): Promise<any> {
     const headers = msg.properties.headers;
     const tattoo = headers && headers.tattoo;
+    const extra = headers && headers.extra || {};
     const content = await this.dohook(EventHookType.EVENT, JSON.parse(msg.content.toString('utf8'), reviver));
     const subscribers = this.subscribers.filter(subscriber => subscriber.isRoutingKeyMatched(msg.fields.routingKey));
     const promise = Bluebird.map(subscribers, subscriber => {
-      return enterScope({ RequestTrackId: tattoo, Context: msg.fields.routingKey, Type: 'event' }, () => {
+      const clsProperties = _.merge({ RequestTrackId: tattoo, Context: msg.fields.routingKey, Type: 'event' },
+                                    extra);
+      return enterScope(clsProperties, () => {
         logger.debug(`${msg.fields.routingKey}`, content, msg.properties.headers);
         const log = new TraceLog(tattoo, msg.properties.timestamp || 0);
         log.size = msg.content.byteLength;
