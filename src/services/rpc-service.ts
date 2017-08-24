@@ -232,7 +232,7 @@ export default class RPCService {
       const replyTo = msg.properties.replyTo;
       const headers = msg.properties.headers;
       const tattoo = headers && headers.tattoo;
-      const extra = headers && headers.extra;
+      const extra = headers && headers.extra || {};
       const timestamp = msg.properties.timestamp || 0;
       const log = new TraceLog(tattoo, timestamp);
       this.onGoingRpcRequestCount++;
