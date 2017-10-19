@@ -694,25 +694,22 @@ export function quota(limit: number, banSecs: number) {
     }
   };
 }
-// endpoint에 serviceQuota를 설정한다.
+// endpoint에 serviceGroupQuota를 설정한다.
 //
 // [EXAMPLE]
-// @island.servicdQuota(1, 2)
+// @island.groupServiceQuota([group1, gropu2])
 // @island.endpoint('...')
-export function serviceQuota(limit: number, group?: string[]) {
+export function groupServiceQuota(group: string[]) {
   return (target, key, desc: PropertyDescriptor) => {
     const options = desc.value.options = (desc.value.options || {}) as EndpointOptions;
-    group = group || [];
-    options.serviceQuota = options.quota || {};
-    options.serviceQuota.limit = Number(limit);
-    if (group.length > 0) {
-      options.serviceQuota.group = group;
-    }
+    options.serviceQuota = options.serviceQuota || {};
+    options.serviceQuota.group = group;
     if (desc.value.endpoints) {
       desc.value.endpoints.forEach(e => _.merge(e.options, options));
     }
   };
 }
+//
 // endpoint에 quota Group을 설정한다.
 //
 // [EXAMPLE]
