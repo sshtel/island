@@ -30,7 +30,7 @@ export default class RPCAdapter extends ListenableAdapter<RPCService, RPCAdapter
   }
 
   listen(): Promise<void> {
-    return Promise.resolve();
+    return this._adaptee.listen();
   }
 
   async destroy(): Promise<any> {

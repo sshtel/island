@@ -25,6 +25,8 @@ const RPC_WAIT_TIMEOUT_MS = parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS, 10)
 const SERVICE_LOAD_TIME_MS = parseInt(process.env.ISLAND_SERVICE_LOAD_TIME_MS, 10) || 60000;
 const RPC_QUEUE_EXPIRES_MS = RPC_WAIT_TIMEOUT_MS + SERVICE_LOAD_TIME_MS;
 
+export type RpcType = 'rpc' | 'endpoint';
+
 export interface IConsumerInfo {
   channel: amqp.Channel;
   tag: string;
@@ -94,6 +96,8 @@ function nackWithDelay(channel, msg) {
 
 type DeferredResponse = { resolve: (msg: Message) => any, reject: (e: Error) => any };
 
+const NO_REVIVER = process.env.NO_REVIVER === 'true';
+
 export default class RPCService {
   private consumerInfosMap: { [name: string]: IConsumerInfo } = {};
   private responseQueueName: string;
@@ -106,6 +110,13 @@ export default class RPCService {
   private hooks: { [key: string]: RpcHook[] };
   private onGoingRpcRequestCount: number = 0;
   private purging: Function | null = null;
+  private rpcEntities: {
+    [rpcName: string]: {
+      handler: (req: any) => Promise<any>;
+      type: RpcType;
+      rpcOptions?: RpcOptions;
+    }
+  } = {};
 
   constructor(serviceName?: string) {
     this.serviceName = serviceName || 'unknown';
@@ -113,7 +124,7 @@ export default class RPCService {
   }
 
   public async initialize(channelPool: AmqpChannelPoolService, opts?: InitializeOptions): Promise<any> {
-    if (opts && opts.noReviver) {
+    if (NO_REVIVER || opts && opts.noReviver) {
       RpcResponse.reviver = undefined;
     } else {
       RpcResponse.reviver = reviver;
@@ -141,6 +152,7 @@ export default class RPCService {
       logger.info('stop serving', consumerInfo.key);
       await this.pause(consumerInfo.key);
       delete this.consumerInfosMap[consumerInfo.key];
+      delete this.rpcEntities[consumerInfo.key];
     }))
       .then(async () => {
         if (this.onGoingRpcRequestCount > 0) {
@@ -161,58 +173,63 @@ export default class RPCService {
 
   public async register(rpcName: string,
                         handler: (req: any) => Promise<any>,
-                        type: 'endpoint' | 'rpc',
+                        type: RpcType,
                         rpcOptions?: RpcOptions): Promise<void> {
+    this.rpcEntities[rpcName] = { handler, type, rpcOptions };
     await this.channelPool.usingChannel(channel => channel.assertQueue(rpcName, {
       arguments : {'x-expires': RPC_QUEUE_EXPIRES_MS},
       durable   : false
     }));
+  }
 
-    this.consumerInfosMap[rpcName] = await this._consume(rpcName, (msg: Message) => {
-      const { replyTo, headers, correlationId } = msg.properties;
-      if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
+  public async listen() {
+    await Promise.all(_.map(this.rpcEntities, async ({type, handler, rpcOptions}, rpcName: string) => {
+      this.consumerInfosMap[rpcName] = await this._consume(rpcName, (msg: Message) => {
+        const { replyTo, headers, correlationId } = msg.properties;
+        if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
 
-      const startExecutedAt = +new Date();
-      const tattoo = headers && headers.tattoo;
-      const extra = headers && headers.extra || {};
-      const timestamp = msg.properties.timestamp || 0;
-      const log = createTraceLog({ tattoo, timestamp, msg, headers, rpcName, serviceName: this.serviceName });
-      exporter.collectRequestAndReceivedTime(type, +new Date() - timestamp);
-      return this.enterCLS(tattoo, rpcName, extra, async () => {
-        const options = { correlationId, headers };
-        const parsed = JSON.parse(msg.content.toString('utf8'), reviver);
-        try {
-          this.onGoingRpcRequestCount++;
-          await Bluebird.resolve()
-            .then(()  => sanitizeAndValidate(parsed, rpcOptions))
-            .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
-            .then(req => this.dohook('pre', type, req))
-            .then(req => handler(req))
-            .then(res => this.dohook('post', type, res))
-            .then(res => sanitizeAndValidateResult(res, rpcOptions))
-            .then(res => this.reply(replyTo, res, options))
-            .tap (()  => log.end())
-            .tap (() => exporter.collectExecutedCountAndExecutedTime(type, +new Date() - startExecutedAt))
-            .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
-            .timeout(RPC_EXEC_TIMEOUT_MS);
-        } catch (err) {
-          await Bluebird.resolve(err)
-            .then(err => this.earlyThrowWith503(rpcName, err, msg))
-            .tap (err => log.end(err))
-            .then(err => this.dohook('pre-error', type, err))
-            .then(err => this.attachExtraError(err, rpcName, parsed))
-            .then(err => this.reply(replyTo, err, options))
-            .then(err => this.dohook('post-error', type, err))
-            .tap (err => this.logRpcError(err));
-          throw err;
-        } finally {
-          log.shoot();
-          if (--this.onGoingRpcRequestCount < 1 && this.purging) {
-            this.purging();
+        const startExecutedAt = +new Date();
+        const tattoo = headers && headers.tattoo;
+        const extra = headers && headers.extra || {};
+        const timestamp = msg.properties.timestamp || 0;
+        const log = createTraceLog({ tattoo, timestamp, msg, headers, rpcName, serviceName: this.serviceName });
+        exporter.collectRequestAndReceivedTime(type, +new Date() - timestamp);
+        return this.enterCLS(tattoo, rpcName, extra, async () => {
+          const options = { correlationId, headers };
+          const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
+          try {
+            this.onGoingRpcRequestCount++;
+            await Bluebird.resolve()
+              .then(()  => sanitizeAndValidate(parsed, rpcOptions))
+              .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
+              .then(req => this.dohook('pre', type, req))
+              .then(req => handler(req))
+              .then(res => this.dohook('post', type, res))
+              .then(res => sanitizeAndValidateResult(res, rpcOptions))
+              .then(res => this.reply(replyTo, res, options))
+              .tap (()  => log.end())
+              .tap (() => exporter.collectExecutedCountAndExecutedTime(type, +new Date() - startExecutedAt))
+              .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
+              .timeout(RPC_EXEC_TIMEOUT_MS);
+          } catch (err) {
+            await Bluebird.resolve(err)
+              .then(err => this.earlyThrowWith503(rpcName, err, msg))
+              .tap (err => log.end(err))
+              .then(err => this.dohook('pre-error', type, err))
+              .then(err => this.attachExtraError(err, rpcName, parsed))
+              .then(err => this.reply(replyTo, err, options))
+              .then(err => this.dohook('post-error', type, err))
+              .tap (err => this.logRpcError(err));
+            throw err;
+          } finally {
+            log.shoot();
+            if (--this.onGoingRpcRequestCount < 1 && this.purging) {
+              this.purging();
+            }
           }
-        }
+        });
       });
-    });
+    }));
   }
 
   public async pause(name: string) {
@@ -233,6 +250,7 @@ export default class RPCService {
 
     await this._cancel(consumerInfo);
     delete this.consumerInfosMap[name];
+    delete this.rpcEntities[name];
   }
 
   public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata: boolean}): Promise<U>;

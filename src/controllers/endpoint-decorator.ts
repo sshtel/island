@@ -20,13 +20,19 @@ export interface EndpointOptions {
   level?: number;
   admin?: boolean;
   ensure?: number;
-  quota?: EndpointQuotaOptions;
+  quota?: EndpointUserQuotaOptions;
+  serviceQuota?: EndpointServiceQuotaOptions;
   extra?: {[key: string]: any};
 }
 
-export interface EndpointQuotaOptions {
+export interface EndpointUserQuotaOptions {
   limit?: number;
   banSecs?: number;
+  group?: string[];
+}
+
+export interface EndpointServiceQuotaOptions {
+  limit?: number;
   group?: string[];
 }
 
@@ -152,17 +158,25 @@ export namespace sanitize {
   }
 
   // tslint:disable-next-line
+  export interface __Object {
+    def?: Object;
+  }
+
+  // tslint:disable-next-line
   export class _Object {
     properties: { [key: string]: SanitizePropertyTypes } | undefined;
+    def?: Object;
 
-    constructor(obj?: { [key: string]: SanitizePropertyTypes }) {
+    constructor(obj?: { [key: string]: SanitizePropertyTypes }, opts?: __Object | undefined) {
+      opts = opts || {};
       this.properties = obj;
+      this.def = opts.def;
     }
   }
 
   // tslint:disable-next-line
-  export function Object(obj: { [key: string]: SanitizePropertyTypes }) {
-    return new _Object(obj);
+  export function Object(obj: { [key: string]: SanitizePropertyTypes }, opts?: __Object) {
+    return new _Object(obj, opts);
   }
 
   // tslint:disable-next-line
@@ -211,6 +225,7 @@ export namespace sanitize {
     } else if (value instanceof _Object) {
       property.type = 'object';
       property.properties = sanitizeAsObject(value.properties);
+      _.defaults(property, value);
     } else if (value instanceof _Array) {
       property.type = 'array';
       property.items = sanitizeAsArray(value.items);
@@ -299,11 +314,12 @@ export namespace sanitize {
     return parseSanitization({}, target as SanitizePropertyTypes);
   }
 
-  export const query = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'query');
   export const body = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'body');
   export const params = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'params');
-  export const session = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'session');
+  export const query = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'query');
   export const result = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'result');
+  export const session = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'session');
+  export const user = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'user');
 }
 
 export namespace validate {
@@ -403,6 +419,7 @@ export namespace validate {
   export interface __Array {
     minLength?: number;
     maxLength?: number;
+    exactLength?: number;
   }
 
   // tslint:disable-next-line class-name
@@ -410,12 +427,14 @@ export namespace validate {
     items: [ValidatePropertyTypes] | undefined;
     minLength?: number;
     maxLength?: number;
+    exactLength?: number;
 
     constructor(items: [ValidatePropertyTypes] | undefined, opts: __Array | undefined) {
       opts = opts || {};
       this.items = items;
       this.minLength = opts.minLength;
       this.maxLength = opts.maxLength;
+      this.exactLength = opts.exactLength;
     }
   }
 
@@ -560,11 +579,12 @@ export namespace validate {
     return parseValidation({}, target as ValidatePropertyTypes);
   }
 
-  export const query = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'query');
   export const body = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'body');
   export const params = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'params');
-  export const session = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'session');
+  export const query = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'query');
   export const result = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'result');
+  export const session = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'session');
+  export const user = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'user');
 }
 
 // Login ensure 레벨을 지정
@@ -672,7 +692,7 @@ function pushSafe(object, arrayName, element) {
   array.push(element);
 }
 
-// endpoint에 quota를 설정한다.
+// endpoint에 userQuota를 설정한다.
 //
 // [EXAMPLE]
 // @island.quota(1, 2)
@@ -683,6 +703,25 @@ export function quota(limit: number, banSecs: number) {
     options.quota = options.quota || {};
     options.quota.limit = Number(limit);
     options.quota.banSecs = Number(banSecs);
+    if (desc.value.endpoints) {
+      desc.value.endpoints.forEach(e => _.merge(e.options, options));
+    }
+  };
+}
+// endpoint에 serviceQuota를 설정한다.
+//
+// [EXAMPLE]
+// @island.servicdQuota(1, 2)
+// @island.endpoint('...')
+export function serviceQuota(limit: number, group?: string[]) {
+  return (target, key, desc: PropertyDescriptor) => {
+    const options = desc.value.options = (desc.value.options || {}) as EndpointOptions;
+    group = group || [];
+    options.serviceQuota = options.quota || {};
+    options.serviceQuota.limit = Number(limit);
+    if (group.length > 0) {
+      options.serviceQuota.group = group;
+    }
     if (desc.value.endpoints) {
       desc.value.endpoints.forEach(e => _.merge(e.options, options));
     }

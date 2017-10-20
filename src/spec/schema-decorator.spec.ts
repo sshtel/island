@@ -258,12 +258,25 @@ describe('validate', () => {
     });
   });
 
+  it('should support array options - exactLength', () => {
+    const result = v.validate(v.Array([Number], {exactLength: 10 }));
+    expect(result).toEqual({
+      type: 'array',
+      exactLength: 10,
+      optional: false,
+      items: {type : 'number',
+              optional: false
+             }
+    });
+  });
+
   it('should support array options', () => {
-    const result = v.validate(v.Array([Number], {minLength: 5 , maxLength: 10 }));
+    const result = v.validate(v.Array([Number], {minLength: 5 , maxLength: 10, exactLength: 15  }));
     expect(result).toEqual({
       type: 'array',
       minLength: 5,
       maxLength: 10,
+      exactLength: 15,
       optional: false,
       items: {type : 'number',
               optional: false
@@ -425,6 +438,17 @@ describe('sanitize', () => {
       },
       type: 'object'
     });
+  });
+
+  it('should support default value of object', () => {
+    const result = island.sanitize.sanitize({
+      a: s.Object({ b: Number }, { def: { b: 1 } }),
+      c: s.Object({
+        d: s.Object({ e: String })
+      }, { def: { d: { e: 'string' } } })
+    });
+    expect(result.properties.a.def).toEqual({ b: 1 });
+    expect(result.properties.c.def).toEqual({ d: { e: 'string' } });
   });
 });
 
