@@ -52,6 +52,9 @@ export {
   EndpointSchemaOptions,
   endpoint,
   endpointController,
+  quota,
+  groupServiceQuota,
+  groupQuota
 } from './controllers/endpoint-decorator';
 export {
   rpc,
