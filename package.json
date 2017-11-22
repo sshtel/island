@@ -1,6 +1,6 @@
 {
   "name": "island",
-  "version": "1.10.99-edge-lts.3",
+  "version": "1.10.99-edge-lts.4",
   "description": "A package suite for building microservice using TypeScript.",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
