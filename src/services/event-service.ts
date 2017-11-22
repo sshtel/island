@@ -5,6 +5,8 @@ import * as Bluebird from 'bluebird';
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 
+import * as os from 'os';
+
 import { Events } from '../utils/event';
 import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
@@ -55,7 +57,8 @@ export class EventService {
   constructor(serviceName: string) {
     this.serviceName = serviceName;
     this.roundRobinQ = `event.${serviceName}`;
-    this.fanoutQ = `event.${serviceName}.node.${uuid.v4()}`;
+    // Added hostname to fanout queue to easily identify which containers are having problems.
+    this.fanoutQ = `event.${serviceName}.node.${uuid.v4()}.${os.hostname()}`;
   }
 
   async initialize(channelPool: AmqpChannelPoolService): Promise<any> {
