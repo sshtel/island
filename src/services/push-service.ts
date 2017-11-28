@@ -37,10 +37,10 @@ export default class PushService {
       let buf;
       switch (SERIALIZE_FORMAT_PUSH) {
         case 'json':
-          buf = new Buffer(JSON.stringify(obj));
+          buf = Buffer.concat([new Buffer('JSON'), new Buffer(JSON.stringify(obj))]);
           break;
         default:
-          buf = PushService.msgpack.encode(obj);
+          buf = Buffer.concat([new Buffer('MSGP'), PushService.msgpack.encode(obj)]);
           break;
       }
       return buf;
@@ -55,13 +55,34 @@ export default class PushService {
 
   public static decode(buf) {
     let obj;
-    switch (SERIALIZE_FORMAT_PUSH) {
-      case 'json':
-        obj = JSON.parse(buf.toString());
+    let magic;
+    try {
+      magic = buf.readUInt32LE(0, 4);
+    } catch (e) {
+      // FIXME: backward compatibility
+      // we can just throw in here after all services changed.
+      magic = 0;
+    }
+    switch (magic) {
+      // JSON
+      case 0x4E4F534A:
+        obj = JSON.parse(buf.slice(4).toString());
+        break;
+      // MSGP
+      case 0x5047534D:
+        obj = PushService.msgpack.decode(buf.slice(4));
         break;
       default:
-        obj = PushService.msgpack.decode(buf);
-        break;
+        // FIXME: backward compatibility
+        // we can just throw in here after all services changed.
+        switch (SERIALIZE_FORMAT_PUSH) {
+          case 'json':
+            obj = JSON.parse(buf.toString());
+            break;
+          default:
+            obj = PushService.msgpack.decode(buf);
+            break;
+        }
     }
     return obj;
   }
