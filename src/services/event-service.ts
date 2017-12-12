@@ -50,6 +50,9 @@ export class EventService {
   private serviceName: string;
   private hooks: { [key: string]: EventHook[] } = {};
   private onGoingEventRequestCount: number = 0;
+  private onGoingEventRoutingKey: any = {};
+  private publishingEvents: any = {};
+  private publishedEvents: number = 0;
   private purging: Function | null = null;
 
   constructor(serviceName: string) {
@@ -133,6 +136,14 @@ export class EventService {
       },
       timestamp: +event.publishedAt || +new Date()
     };
+    this.publishingEvents[event.key] = this.publishingEvents[event.key] || 0;
+    this.publishingEvents[event.key]++;
+    this.publishedEvents++;
+    if (1000 < this.publishedEvents) {
+      logger.notice('!!!!!!!!!!!!!!!', JSON.stringify(this.publishingEvents));
+      this.publishingEvents = {};
+      this.publishedEvents = 0;
+    }
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
         return this._publish(EventService.EXCHANGE_NAME, event.key, content, options);
@@ -157,11 +168,19 @@ export class EventService {
         const startedAt = +new Date();
         exporter.collectRequestAndReceivedTime('event', startedAt - timestamp);
         this.onGoingEventRequestCount++;
+        const routingKey = msg.fields && msg.fields.routingKey || 'unknown';
+        this.onGoingEventRoutingKey[routingKey] = this.onGoingEventRoutingKey[routingKey] || 0;
+        this.onGoingEventRoutingKey[routingKey] ++;
+        if (this.onGoingEventRequestCount > 80) {
+          logger.notice(' >>>>>>>>>>>>> ' + JSON.stringify(this.onGoingEventRoutingKey));
+        }
+
         Bluebird.resolve(this.handleMessage(msg))
           .tap(() => exporter.collectExecutedCountAndExecutedTime('event', +new Date() - startedAt))
           .catch(e => this.sendErrorLog(e, msg))
           .finally(() => {
             channel.ack(msg);
+            this.onGoingEventRoutingKey[routingKey] --;
             if (--this.onGoingEventRequestCount < 1 && this.purging) {
               this.purging();
             }
