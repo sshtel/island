@@ -5,6 +5,7 @@ import { AmqpChannelPoolAdapter } from './amqp-channel-pool-adapter';
 
 export interface EventAdapterOptions {
   amqpChannelPoolAdapter: AmqpChannelPoolAdapter;
+  consumerAmqpChannelPoolAdapter?: AmqpChannelPoolAdapter;
   serviceName: string;
 }
 
@@ -16,8 +17,13 @@ export class EventAdapter extends ListenableAdapter<EventService, EventAdapterOp
     if (!amqpChannelPoolService) {
       throw new FatalError(ISLAND.FATAL.F0008_AMQP_CHANNEL_POOL_REQUIRED, 'AmqpChannelPoolService required');
     }
+    const { consumerAmqpChannelPoolAdapter } = this.options;
+    const consumerAmqpChannelPool = consumerAmqpChannelPoolAdapter && consumerAmqpChannelPoolAdapter.adaptee;
     await amqpChannelPoolService.waitForInit();
-    return this._adaptee.initialize(amqpChannelPoolService);
+    if (consumerAmqpChannelPool) {
+      await consumerAmqpChannelPool.waitForInit();
+    }
+    return this._adaptee.initialize(amqpChannelPoolService, consumerAmqpChannelPool);
   }
 
   listen(): Promise<void> {
