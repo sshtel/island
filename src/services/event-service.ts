@@ -44,6 +44,7 @@ function enterScope(properties: any, func): Promise<any> {
 export class EventService {
   private static EXCHANGE_NAME: string = 'MESSAGE_BROKER_EXCHANGE';
   private channelPool: AmqpChannelPoolService;
+  private consumerChannelPool: AmqpChannelPoolService;
   private roundRobinQ: string;
   private fanoutQ: string;
   private subscribers: Subscriber[] = [];
@@ -58,11 +59,12 @@ export class EventService {
     this.fanoutQ = `event.${serviceName}.node.${uuid.v4()}`;
   }
 
-  async initialize(channelPool: AmqpChannelPoolService): Promise<any> {
+  async initialize(channelPool: AmqpChannelPoolService, consumerChannelPool?: AmqpChannelPoolService): Promise<any> {
     await TraceLog.initialize();
 
     this.channelPool = channelPool;
-    return channelPool.usingChannel(channel => {
+    this.consumerChannelPool = consumerChannelPool || channelPool;
+    return this.consumerChannelPool.usingChannel(channel => {
       return channel.assertExchange(EventService.EXCHANGE_NAME, 'topic', { durable: true })
         .then(() => channel.assertQueue(this.roundRobinQ, { durable: true, exclusive: false }))
         .then(() => channel.assertQueue(this.fanoutQ, { exclusive: true, autoDelete: true }));
@@ -70,7 +72,7 @@ export class EventService {
   }
 
   async startConsume(): Promise<any> {
-    const channel = await this.channelPool.acquireChannel();
+    const channel = await this.consumerChannelPool.acquireChannel();
 
     await Bluebird.map([this.roundRobinQ, this.fanoutQ], queue => {
       this.registerConsumer(channel, queue);
@@ -145,7 +147,7 @@ export class EventService {
   }
 
   private registerConsumer(channel: amqp.Channel, queue: string): Promise<any> {
-    const prefetchCount = this.channelPool.getPrefetchCount();
+    const prefetchCount = this.consumerChannelPool.getPrefetchCount();
     return Promise.resolve(channel.prefetch(prefetchCount || +process.env.EVENT_PREFETCH || 100))
       .then(() => channel.consume(queue, msg => {
         if (!msg) {
@@ -245,7 +247,7 @@ export class EventService {
   private subscribe(subscriber: Subscriber, options?: SubscriptionOptions): Promise<void> {
     options = options || {};
     subscriber.setQueue(options.everyNodeListen && this.fanoutQ || this.roundRobinQ);
-    return this.channelPool.usingChannel(channel => {
+    return this.consumerChannelPool.usingChannel(channel => {
       return channel.bindQueue(subscriber.getQueue(), EventService.EXCHANGE_NAME, subscriber.getRoutingPattern());
     })
       .then(() => {
@@ -262,7 +264,7 @@ export class EventService {
   private unsubscribe(subscriber: Subscriber) {
     const queue = subscriber.getQueue();
     if (!queue) return;
-    return this.channelPool.usingChannel(channel => {
+    return this.consumerChannelPool.usingChannel(channel => {
       if (queue === this.roundRobinQ)
         return channel.unbindExchange(queue, EventService.EXCHANGE_NAME, subscriber.getRoutingPattern());
       return channel.unbindQueue(queue, EventService.EXCHANGE_NAME, subscriber.getRoutingPattern());
