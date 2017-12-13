@@ -5,6 +5,7 @@ import { AmqpChannelPoolAdapter } from './amqp-channel-pool-adapter';
 
 export interface RPCAdapterOptions {
   amqpChannelPoolAdapter: AmqpChannelPoolAdapter;
+  consumerAmqpChannelPoolAdapter?: AmqpChannelPoolAdapter;
   serviceName: string;
   noReviver?: boolean;
 }
@@ -22,11 +23,19 @@ export default class RPCAdapter extends ListenableAdapter<RPCService, RPCAdapter
     if (!amqpChannelPoolService) {
       throw new FatalError(ISLAND.FATAL.F0008_AMQP_CHANNEL_POOL_REQUIRED, 'AmqpChannelPoolService required');
     }
+    const { consumerAmqpChannelPoolAdapter } = this.options;
+    const consumerChannelPool = consumerAmqpChannelPoolAdapter && consumerAmqpChannelPoolAdapter.adaptee;
     await amqpChannelPoolService.waitForInit();
+    if (consumerChannelPool) {
+      await consumerChannelPool.waitForInit();
+    }
     this.hooks.forEach(hook => {
       this._adaptee.registerHook(hook.type, hook.hook);
     });
-    return this._adaptee.initialize(amqpChannelPoolService, { noReviver: this.options.noReviver });
+    return this._adaptee.initialize(amqpChannelPoolService, {
+      noReviver: this.options.noReviver,
+      consumerAmqpChannelPool: consumerChannelPool
+    });
   }
 
   listen(): Promise<void> {
