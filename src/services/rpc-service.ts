@@ -190,7 +190,7 @@ export default class RPCService {
   }
 
   public async listen() {
-    const RPC_QUEUE_NAME = `rpc.req.${this.serviceName}`;
+    const RPC_QUEUE_NAME = this.makeRequestQueueName();
     await this.consumerChannelPool.usingChannel(async channel => {
       await channel.assertQueue(RPC_QUEUE_NAME, {
         arguments : {'x-expires': RPC_QUEUE_EXPIRES_MS},
@@ -346,6 +346,11 @@ export default class RPCService {
 
   private shutdown() {
     process.emit('SIGTERM');
+  }
+
+  private makeRequestQueueName() {
+    // request queue는 공유해도 상관없다
+    return `rpc.req.${this.serviceName}.${os.hostname()}`;
   }
 
   private makeResponseQueueName() {
