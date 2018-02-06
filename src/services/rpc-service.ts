@@ -462,6 +462,7 @@ export default class RPCService {
 
   // returns value again for convenience
   private async reply(replyTo: string, value: any, options: amqp.Options.Publish) {
+    options.timestamp = +new Date();
     await this.channelPool.usingChannel(async channel => {
       return channel.sendToQueue(replyTo, RpcResponse.encode(value), options);
     });
