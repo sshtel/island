@@ -22,8 +22,8 @@ export { IRpcResponse, RpcRequest, RpcResponse };
 
 const RPC_EXEC_TIMEOUT_MS = parseInt(process.env.ISLAND_RPC_EXEC_TIMEOUT_MS, 10) || 25000;
 const RPC_WAIT_TIMEOUT_MS = parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS, 10) || 60000;
-const SERVICE_LOAD_TIME_MS = parseInt(process.env.ISLAND_SERVICE_LOAD_TIME_MS, 10) || 60000;
-const RPC_QUEUE_EXPIRES_MS = RPC_WAIT_TIMEOUT_MS + SERVICE_LOAD_TIME_MS;
+// const SERVICE_LOAD_TIME_MS = parseInt(process.env.ISLAND_SERVICE_LOAD_TIME_MS, 10) || 60000;
+// const RPC_QUEUE_EXPIRES_MS = RPC_WAIT_TIMEOUT_MS + SERVICE_LOAD_TIME_MS;
 
 export type RpcType = 'rpc' | 'endpoint';
 
@@ -190,70 +190,80 @@ export default class RPCService {
   }
 
   public async listen() {
-    const RPC_QUEUE_NAME = this.makeRequestQueueName();
     await this.consumerChannelPool.usingChannel(async channel => {
-      await channel.assertQueue(RPC_QUEUE_NAME, {
-        arguments : {'x-expires': RPC_QUEUE_EXPIRES_MS},
-        durable   : false
-      });
       await Promise.all(_.map(this.rpcEntities, async ({ type, handler, rpcOptions }, rpcName: string) => {
         await channel.assertExchange(rpcName, 'direct', { autoDelete: true, durable: false });
       }));
     });
-    await this._consume(RPC_QUEUE_NAME, async (msg: Message) => {
-      const rpcName = msg.fields.exchange;
-      if (!this.rpcEntities[rpcName]) {
-        logger.warning('no such RPC found', rpcName);
-        return;
-      }
-      const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
-      const { replyTo, headers, correlationId } = msg.properties;
-      if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
 
-      const startExecutedAt = +new Date();
-      const tattoo = headers && headers.tattoo;
-      const extra = headers && headers.extra || {};
-      const timestamp = msg.properties.timestamp || 0;
-      const log = createTraceLog({ tattoo, timestamp, msg, headers, rpcName, serviceName: this.serviceName });
-      exporter.collectRequestAndReceivedTime(type, +new Date() - timestamp);
-      return this.enterCLS(tattoo, rpcName, extra, async () => {
-        const options = { correlationId, headers };
-        const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-        try {
-          this.onGoingRpcRequestCount++;
-          await Bluebird.resolve()
-            .then(()  => sanitizeAndValidate(parsed, rpcOptions))
-            .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
-            .then(req => this.dohook('pre', type, req))
-            .then(req => handler(req))
-            .then(res => this.dohook('post', type, res))
-            .then(res => sanitizeAndValidateResult(res, rpcOptions))
-            .then(res => this.reply(replyTo, res, options))
-            .tap (()  => log.end())
-            .tap (() => exporter.collectExecutedCountAndExecutedTime(type, +new Date() - startExecutedAt))
-            .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
-            .timeout(RPC_EXEC_TIMEOUT_MS);
-        } catch (err) {
-          await Bluebird.resolve(err)
-            .then(err => this.earlyThrowWith503(rpcName, err, msg))
-            .tap (err => log.end(err))
-            .then(err => this.dohook('pre-error', type, err))
-            .then(err => this.attachExtraError(err, rpcName, parsed))
-            .then(err => this.reply(replyTo, err, options))
-            .then(err => this.dohook('post-error', type, err))
-            .tap (err => this.logRpcError(err));
-          throw err;
-        } finally {
-          log.shoot();
-          if (--this.onGoingRpcRequestCount < 1 && this.purging) {
-            this.purging();
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await Bluebird.each(_.range(16), async shard => {
+        const RPC_QUEUE_NAME = this.makeRequestQueueName(shard);
+
+        await channel.assertQueue(RPC_QUEUE_NAME, {
+          // arguments : {'x-expires': RPC_QUEUE_EXPIRES_MS},
+          durable   : false,
+          autoDelete: true
+        });
+        await this._consume(RPC_QUEUE_NAME, async (msg: Message) => {
+          const rpcName = msg.fields.exchange;
+          if (!this.rpcEntities[rpcName]) {
+            logger.warning('no such RPC found', rpcName);
+            return;
           }
-        }
+          const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
+          const { replyTo, headers, correlationId } = msg.properties;
+          if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
+
+          const startExecutedAt = +new Date();
+          const tattoo = headers && headers.tattoo;
+          const extra = headers && headers.extra || {};
+          const timestamp = msg.properties.timestamp || 0;
+          const log = createTraceLog({ tattoo, timestamp, msg, headers, rpcName, serviceName: this.serviceName });
+          exporter.collectRequestAndReceivedTime(type, +new Date() - timestamp);
+          return this.enterCLS(tattoo, rpcName, extra, async () => {
+            const options = { correlationId, headers };
+            const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
+            try {
+              this.onGoingRpcRequestCount++;
+              await Bluebird.resolve()
+                .then(()  => sanitizeAndValidate(parsed, rpcOptions))
+                .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
+                .then(req => this.dohook('pre', type, req))
+                .then(req => handler(req))
+                .then(res => this.dohook('post', type, res))
+                .then(res => sanitizeAndValidateResult(res, rpcOptions))
+                .then(res => this.reply(replyTo, res, options))
+                .tap (()  => log.end())
+                .tap (() => exporter.collectExecutedCountAndExecutedTime(type, +new Date() - startExecutedAt))
+                .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
+                .timeout(RPC_EXEC_TIMEOUT_MS);
+            } catch (err) {
+              await Bluebird.resolve(err)
+                .then(err => this.earlyThrowWith503(rpcName, err, msg))
+                .tap (err => log.end(err))
+                .then(err => this.dohook('pre-error', type, err))
+                .then(err => this.attachExtraError(err, rpcName, parsed))
+                .then(err => this.reply(replyTo, err, options))
+                .then(err => this.dohook('post-error', type, err))
+                .tap (err => this.logRpcError(err));
+              throw err;
+            } finally {
+              log.shoot();
+              if (--this.onGoingRpcRequestCount < 1 && this.purging) {
+                this.purging();
+              }
+            }
+          });
+        });
       });
     });
     await this.consumerChannelPool.usingChannel(async channel => {
       await Promise.all(_.map(this.rpcEntities, async ({ type, handler, rpcOptions }, rpcName: string) => {
-        await channel.bindQueue(RPC_QUEUE_NAME, rpcName, '');
+        await Bluebird.each(_.range(16), async shard => {
+          const RPC_QUEUE_NAME = this.makeRequestQueueName(shard);
+          await channel.bindQueue(RPC_QUEUE_NAME, rpcName, '' + shard);
+        });
       }));
     });
   }
@@ -296,7 +306,7 @@ export default class RPCService {
 
     const content = new Buffer(JSON.stringify(msg), 'utf8');
     try {
-      await this.channelPool.usingChannel(async chan => chan.publish(name, '', content, option));
+      await this.channelPool.usingChannel(async chan => chan.publish(name, '' + _.random(0, 15), content, option));
     } catch (e) {
       this.waitingResponse[option.correlationId!].reject(e);
       delete this.waitingResponse[option.correlationId!];
@@ -322,7 +332,9 @@ export default class RPCService {
         channel.ack(msg);
       }
     };
-    const result = await channel.consume(key, consumer);
+    const result = await channel.consume(key, consumer, { consumerTag: [
+      this.serviceName, os.hostname(), key].join('.')
+    });
     return { channel, tag: result.consumerTag, key, consumer };
   }
 
@@ -348,9 +360,8 @@ export default class RPCService {
     process.emit('SIGTERM');
   }
 
-  private makeRequestQueueName() {
-    // request queue는 공유해도 상관없다
-    return `rpc.req.${this.serviceName}.${os.hostname()}`;
+  private makeRequestQueueName(shard: number) {
+    return `rpc.req.${this.serviceName}.${shard}`;
   }
 
   private makeResponseQueueName() {
