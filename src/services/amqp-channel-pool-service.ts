@@ -19,11 +19,10 @@ export interface ChannelInfo {
 }
 
 export class AmqpChannelPoolService {
-  static DEFAULT_POOL_SIZE: number = 100;
+  static DEFAULT_POOL_SIZE: number = 16;
 
   private connection: amqp.Connection;
   private options: AmqpOptions;
-  private openChannels: amqp.Channel[] = [];
   private idleChannels: ChannelInfo[] = [];
   private initResolver: Bluebird.Resolver<void>;
 
@@ -59,21 +58,21 @@ export class AmqpChannelPoolService {
   }
 
   async acquireChannel(): Promise<amqp.Channel> {
-    return Promise.resolve(Bluebird.try(() => {
-      const info = this.idleChannels.shift();
-      return info && info.channel || this.createChannel();
+    return Promise.resolve(Bluebird.try(async () => {
+      // In race condition, the length of idleChannels can over the requested poolSize.
+      // But, we allow the little miss at here.
+      if (this.idleChannels.length < this.options.poolSize) {
+        this.idleChannels.push({
+          channel: await this.createChannel(),
+          date: +new Date()
+        });
+      }
+      const info = _.sample(this.idleChannels);
+      return info && info.channel;
     }));
   }
 
   async releaseChannel(channel: amqp.Channel, reusable: boolean = false): Promise<void> {
-    if (!_.includes(this.openChannels, channel)) {
-      return;
-    }
-    if (reusable && this.idleChannels.length < (this.options.poolSize as number)) {
-      this.idleChannels.push({ channel, date: +new Date() });
-      return;
-    }
-    return channel.close();
   }
 
   async usingChannel<T>(task: (channel: amqp.Channel) => PromiseLike<T>) {
@@ -89,9 +88,7 @@ export class AmqpChannelPoolService {
 
   private async createChannel(): Promise<amqp.Channel> {
     const channel = await this.connection.createChannel();
-
     this.setChannelEventHandler(channel);
-    this.openChannels.push(channel);
     return channel;
   }
 
@@ -107,7 +104,6 @@ export class AmqpChannelPoolService {
         _.remove(this.idleChannels, (cur: ChannelInfo) => {
           return cur.channel === channel;
         });
-        _.pull(this.openChannels, channel);
       });
   }
 }

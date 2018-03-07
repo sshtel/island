@@ -14,7 +14,7 @@
             true,
             {"order": "statics-first"}
         ],
-        "max-file-line-count": [true, 500],
+        "max-file-line-count": [true, 600],
         "max-line-length": [true, 120],
         "no-angle-bracket-type-assertion": true,
         // "no-any": true,
