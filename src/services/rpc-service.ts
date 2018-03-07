@@ -290,8 +290,15 @@ export default class RPCService {
 
   public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata: boolean}): Promise<U>;
   public async invoke(name: string, msg: any, opts?: {withRawdata: boolean}): Promise<any> {
+    const now = +new Date();
     const option = this.makeInvokeOption();
     const p = this.waitResponse(option.correlationId!, (msg: Message) => {
+      const diff = Math.floor((+new Date() - now) / 100) / 10;
+      if (diff > 3 * 1000) {
+        const tat = option.headers.tattoo.split('-')[0];
+        const netNetCost = +new Date() - msg.properties.timestamp;
+        logger.warning(`SLOWAPI(.js) [${tat}] ${name} - ${diff} ${netNetCost}`);
+      }
       const res = RpcResponse.decode(msg.content);
       if (res.result === false) throw res.body;
       if (opts && opts.withRawdata) return { body: res.body, raw: msg.content };
