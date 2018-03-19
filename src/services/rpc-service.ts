@@ -16,7 +16,7 @@ import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
 import { RpcRequest } from '../utils/rpc-request';
 import { IRpcResponse, RpcResponse } from '../utils/rpc-response';
-import { exporter } from '../utils/status-exporter';
+import { collector } from '../utils/status-collector';
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
 export { IRpcResponse, RpcRequest, RpcResponse };
@@ -214,17 +214,16 @@ export default class RPCService {
           const { replyTo, headers, correlationId } = msg.properties;
           if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
 
-          const startExecutedAt = +new Date();
           const tattoo = headers && headers.tattoo;
           const extra = headers && headers.extra || {};
-          const timestamp = msg.properties.timestamp || 0;
           if (USE_TRACE_HEADER_LOG && !extra.mqstack) {
             extra.mqstack = [];
           }
-          exporter.collectRequestAndReceivedTime(type, +new Date() - timestamp);
           return this.enterCLS(tattoo, rpcName, extra, async () => {
             const options = { correlationId, headers };
             const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
+            collector.collectRequestAndReceivedTime(type, rpcName, msg);
+
             try {
               this.increaseRequest(rpcName, 1);
               await Bluebird.resolve()
@@ -235,7 +234,7 @@ export default class RPCService {
                 .then(res => this.dohook('post', type, res))
                 .then(res => sanitizeAndValidateResult(res, rpcOptions))
                 .then(res => this.reply(replyTo, res, options))
-                .tap (() => exporter.collectExecutedCountAndExecutedTime(type, +new Date() - startExecutedAt))
+                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName))
                 .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
                 .timeout(RPC_EXEC_TIMEOUT_MS);
             } catch (err) {
@@ -245,6 +244,7 @@ export default class RPCService {
                 .then(err => this.attachExtraError(err, rpcName, parsed))
                 .then(err => this.reply(replyTo, err, options))
                 .then(err => this.dohook('post-error', type, err))
+                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, err))
                 .tap (err => this.logRpcError(err));
               throw err;
             } finally {
