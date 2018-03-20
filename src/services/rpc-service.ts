@@ -222,7 +222,7 @@ export default class RPCService {
           return this.enterCLS(tattoo, rpcName, extra, async () => {
             const options = { correlationId, headers };
             const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-            collector.collectRequestAndReceivedTime(type, rpcName, msg);
+            const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
 
             try {
               this.increaseRequest(rpcName, 1);
@@ -234,7 +234,7 @@ export default class RPCService {
                 .then(res => this.dohook('post', type, res))
                 .then(res => sanitizeAndValidateResult(res, rpcOptions))
                 .then(res => this.reply(replyTo, res, options))
-                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName))
+                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId }))
                 .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
                 .timeout(RPC_EXEC_TIMEOUT_MS);
             } catch (err) {
@@ -244,7 +244,7 @@ export default class RPCService {
                 .then(err => this.attachExtraError(err, rpcName, parsed))
                 .then(err => this.reply(replyTo, err, options))
                 .then(err => this.dohook('post-error', type, err))
-                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, err))
+                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId, err }))
                 .tap (err => this.logRpcError(err));
               throw err;
             } finally {

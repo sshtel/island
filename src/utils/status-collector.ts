@@ -1,7 +1,6 @@
-import * as cls from 'continuation-local-storage';
-
 import * as amqp from 'amqplib';
 import * as _ from 'lodash';
+import * as uuid from 'uuid';
 
 import { CalculatedData, StatusExporter } from 'island-status-exporter';
 import { Environments } from '../utils/environments';
@@ -37,6 +36,13 @@ export interface RequestStatistics {
   totalErrorTime: number;
 };
 
+export interface CollectOptions {
+  requestId?: string;
+  msg?: Message;
+  err?: any;
+  ignoreTimestamp?: boolean;
+};
+
 class RequestStatisticsMaker {
   static create(): RequestStatistics {
     return {
@@ -55,6 +61,7 @@ function setDecimalPoint(int: number): number {
 }
 export class StatusCollector {
   private collectedData: { [type: string]: RequestStatistics } = {};
+  private onGoingMap: Map<string, any> = new Map();
   private startedAt: number = +new Date();
 
   public async saveStatus() {
@@ -70,35 +77,41 @@ export class StatusCollector {
 
   // Note:
   // island.js 통해 받지 않는 요청('gateway의 restify', 'push의 socket') 또는 보낸 곳에서 시간값을 주지 않은 요청의 경우는 time 필드가 없다.
-  public collectRequestAndReceivedTime(type: string, name: string, msg?: any) {
-    // correlationId
+  public collectRequestAndReceivedTime(type: string, name: string, options?: CollectOptions): string {
+    const requestId = uuid.v1();
+    const reqTime = +new Date();
 
     const stat: RequestStatistics = this.getStat(type, name);
     ++stat.requestCount;
     ++stat.onGoingRequestCount;
 
-    const ns = cls.getNamespace('app');
-    const now = +new Date();
+    if (!options || options.ignoreTimestamp) return requestId;
 
-    if (msg && msg.properties && msg.properties.timestamp) {
-      stat.totalReceivedTime += now - msg.properties.timestamp;
+    this.onGoingMap.set(requestId, { reqTime });
+
+    if (options.msg && options.msg.properties && options.msg.properties.timestamp) {
+      stat.totalReceivedTime += reqTime - options.msg.properties.timestamp;
     }
-    ns.set('stat.reqTime', now);
+
+    return requestId;
   }
 
-  public collectExecutedCountAndExecutedTime(type: string, name: string, err?: any) {
+  public collectExecutedCountAndExecutedTime(type: string, name: string, options: CollectOptions) {
     const stat: RequestStatistics = this.getStat(type, name);
     --stat.onGoingRequestCount;
 
-    const ns = cls.getNamespace('app');
-    const reqTime = ns.get('stat.reqTime');
+    if (!options.err) ++stat.executedCount;
+    if (!options.requestId) return;
+
+    const reqCache = this.onGoingMap.get(options.requestId);
+    this.onGoingMap.delete(options.requestId);
+    const reqTime = reqCache.reqTime;
     const resTime = +new Date();
 
-    if (!err) {
-      ++stat.executedCount;
-      stat.totalExecutionTime += resTime - reqTime;
-    } else {
+    if (options.err) {
       stat.totalErrorTime += resTime - reqTime;
+    } else {
+      stat.totalExecutionTime += resTime - reqTime;
     }
   }
 
