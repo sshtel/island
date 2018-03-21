@@ -69,9 +69,9 @@ export class StatusCollector {
     const calculated: CalculatedData = this.calculateMeasurementsByType();
     switch (exportTarget) {
       case 'FILE':
-      return await StatusExporter.saveStatusJsonFile(calculated);
+        return await StatusExporter.saveStatusJsonFile(calculated);
       default:
-      break;
+        break;
     }
   }
 
@@ -83,7 +83,6 @@ export class StatusCollector {
 
     const stat: RequestStatistics = this.getStat(type, name);
     ++stat.requestCount;
-    ++stat.onGoingRequestCount;
 
     if (!options || options.ignoreTimestamp) return requestId;
 
@@ -98,7 +97,6 @@ export class StatusCollector {
 
   public collectExecutedCountAndExecutedTime(type: string, name: string, options: CollectOptions) {
     const stat: RequestStatistics = this.getStat(type, name);
-    --stat.onGoingRequestCount;
 
     if (!options.err) ++stat.executedCount;
     if (!options.requestId) return;
