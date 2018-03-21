@@ -175,13 +175,13 @@ export class EventService {
           // TODO: handle unexpected cancel
           return;
         }
-        const requestId = collector.collectRequestAndReceivedTime('event', queue, { msg });
+        const requestId = collector.collectRequestAndReceivedTime('event', msg.fields.routingKey, { msg });
         this.increaseRequest(msg.fields.routingKey, 1);
         Bluebird.resolve(this.handleMessage(msg))
-          .tap(() => collector.collectExecutedCountAndExecutedTime('event', queue, { requestId }))
+          .tap(() => collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId }))
           .catch(err => {
             this.sendErrorLog(err, msg);
-            collector.collectExecutedCountAndExecutedTime('event', queue, { requestId, err } );
+            collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId, err } );
           })
           .finally(() => {
             channel.ack(msg);

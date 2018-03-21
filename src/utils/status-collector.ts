@@ -104,10 +104,11 @@ export class StatusCollector {
     if (!options.requestId) return;
 
     const reqCache = this.onGoingMap.get(options.requestId);
-    this.onGoingMap.delete(options.requestId);
-    const reqTime = reqCache.reqTime;
-    const resTime = +new Date();
+    if (!reqCache) return;
 
+    this.onGoingMap.delete(options.requestId);
+    const resTime = +new Date();
+    const reqTime = reqCache.reqTime || resTime;
     if (options.err) {
       stat.totalErrorTime += resTime - reqTime;
     } else {
