@@ -412,6 +412,7 @@ export default class RPCService {
 
   // returns value again for convenience
   private async reply(replyTo: string, value: any, options: amqp.Options.Publish) {
+    options.timestamp = +new Date();
     const ns = cls.getNamespace('app');
     const mqstack = ns.get('mqstack');
     if (mqstack) {
