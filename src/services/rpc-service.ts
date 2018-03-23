@@ -58,6 +58,14 @@ export enum RpcHookType {
   POST_RPC_ERROR
 }
 
+export interface RpcEntities {
+    [rpcName: string]: {
+      handler: (req: any) => Promise<any>;
+      type: RpcType;
+      rpcOptions?: RpcOptions;
+    };
+}
+
 export interface InitializeOptions {
   noReviver?: boolean;
   consumerAmqpChannelPool?: AmqpChannelPoolService;
@@ -109,13 +117,7 @@ export default class RPCService {
       count: number, details: Map<string, number>
     } = { count : 0, details : new Map() };
   private purging: Function | null = null;
-  private rpcEntities: {
-    [rpcName: string]: {
-      handler: (req: any) => Promise<any>;
-      type: RpcType;
-      rpcOptions?: RpcOptions;
-    }
-  } = {};
+  private rpcEntities: RpcEntities = {};
 
   constructor(serviceName?: string) {
     this.serviceName = serviceName || 'unknown';
@@ -190,82 +192,11 @@ export default class RPCService {
   }
 
   public async listen() {
-    await this.consumerChannelPool.usingChannel(async channel => {
-      await Promise.all(_.map(this.rpcEntities, async ({ type, handler, rpcOptions }, rpcName: string) => {
-        await channel.assertExchange(rpcName, 'direct', { autoDelete: true, durable: false });
-      }));
-    });
-
-    await this.consumerChannelPool.usingChannel(async channel => {
-      await Bluebird.each(_.range(RPC_QUEUE_DISTRIB_SIZE), async shard => {
-        const RPC_QUEUE_NAME = this.makeRequestQueueName(shard);
-
-        await channel.assertQueue(RPC_QUEUE_NAME, {
-          durable: false,
-          expires: RPC_QUEUE_EXPIRES_MS
-        });
-        const consumerInfo = await this._consume(RPC_QUEUE_NAME, async (msg: Message) => {
-          const rpcName = msg.fields.exchange;
-          if (!this.rpcEntities[rpcName]) {
-            logger.warning('no such RPC found', rpcName);
-            return;
-          }
-          const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
-          const { replyTo, headers, correlationId } = msg.properties;
-          if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
-
-          const tattoo = headers && headers.tattoo;
-          const extra = headers && headers.extra || {};
-          if (USE_TRACE_HEADER_LOG && !extra.mqstack) {
-            extra.mqstack = [];
-          }
-          return this.enterCLS(tattoo, rpcName, extra, async () => {
-            const options = { correlationId, headers };
-            const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-            const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
-
-            try {
-              this.increaseRequest(rpcName, 1);
-              await Bluebird.resolve()
-                .then(()  => sanitizeAndValidate(parsed, rpcOptions))
-                .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
-                .then(req => this.dohook('pre', type, req))
-                .then(req => handler(req))
-                .then(res => this.dohook('post', type, res))
-                .then(res => sanitizeAndValidateResult(res, rpcOptions))
-                .then(res => this.reply(replyTo, res, options))
-                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId }))
-                .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
-                .timeout(RPC_EXEC_TIMEOUT_MS);
-            } catch (err) {
-              await Bluebird.resolve(err)
-                .then(err => this.earlyThrowWith503(rpcName, err, msg))
-                .then(err => this.dohook('pre-error', type, err))
-                .then(err => this.attachExtraError(err, rpcName, parsed))
-                .then(err => this.reply(replyTo, err, options))
-                .then(err => this.dohook('post-error', type, err))
-                .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId, err }))
-                .tap (err => this.logRpcError(err));
-              throw err;
-            } finally {
-              this.increaseRequest(rpcName, -1);
-              if (this.purging && this.onGoingRequest.count < 1) {
-                this.purging();
-              }
-            }
-          });
-        });
-        this.requestConsumerInfo.push(consumerInfo);
-      });
-    });
-    await this.consumerChannelPool.usingChannel(async channel => {
-      await Promise.all(_.map(this.rpcEntities, async ({ type, handler, rpcOptions }, rpcName: string) => {
-        await Bluebird.each(_.range(16), async shard => {
-          const RPC_QUEUE_NAME = this.makeRequestQueueName(shard);
-          await channel.bindQueue(RPC_QUEUE_NAME, rpcName, '' + shard);
-        });
-      }));
-    });
+    const queues = _.map(_.range(RPC_QUEUE_DISTRIB_SIZE), no => (`rpc.req.${this.serviceName}.${no}`));
+    await this.assertQueues(queues);
+    await this.assertExchanges(this.rpcEntities);
+    await this.bindQueuesToExchanges(queues, this.rpcEntities);
+    await this.startConsumingQueues(queues);
   }
 
   @deprecated()
@@ -381,10 +312,6 @@ export default class RPCService {
 
   private shutdown() {
     process.emit('SIGTERM');
-  }
-
-  private makeRequestQueueName(shard: number) {
-    return `rpc.req.${this.serviceName}.${shard}`;
   }
 
   private makeResponseQueueName() {
@@ -540,4 +467,94 @@ export default class RPCService {
     const requestCount = (this.onGoingRequest.details.get(name) || 0) + count;
     this.onGoingRequest.details.set(name, requestCount);
   }
+
+  private async assertQueues(queues: string[]): Promise<void> {
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await Promise.all(_.map(queues, async (queue: string) => {
+        await channel.assertQueue(queue, { durable: false, expires: RPC_QUEUE_EXPIRES_MS });
+      }));
+    });
+  }
+
+  private async assertExchanges(rpcEntities: RpcEntities): Promise<void> {
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await Promise.all(_.map(rpcEntities, async ({ type, handler, rpcOptions }, rpcName: string) => {
+        await channel.assertExchange(rpcName, 'direct', { autoDelete: true, durable: false });
+      }));
+    });
+  }
+
+  private async bindQueuesToExchanges(queues: string[], rpcEntities: RpcEntities): Promise<void> {
+    const bindInfos = _.flatten(_.map(_.keys(this.rpcEntities), rpcName => {
+      return _.map(queues, queue => ({ queue, rpcName, routingKey: _.last(queue.split('.')) } ));
+    }));
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await Promise.all(_.map(bindInfos, async ({queue, rpcName, routingKey}) => {
+        await channel.bindQueue(queue, rpcName, routingKey);
+      }));
+    });
+  }
+
+  private async startConsumingQueues(queues: string[]): Promise<void> {
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await Bluebird.each(queues, async queue => {
+        const consumerInfo = await this.startConsumingQueue(queue);
+        this.requestConsumerInfo.push(consumerInfo);
+      });
+    });
+  }
+
+  private async startConsumingQueue(queue: string): Promise<IConsumerInfo> {
+    return this._consume(queue, async (msg: Message) => {
+      const rpcName = msg.fields.exchange;
+      if (!this.rpcEntities[rpcName]) {
+        logger.warning('no such RPC found', rpcName);
+        return;
+      }
+      const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
+      const { replyTo, headers, correlationId } = msg.properties;
+      if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
+
+      const tattoo = headers && headers.tattoo;
+      const extra = headers && headers.extra || {};
+      if (USE_TRACE_HEADER_LOG && !extra.mqstack) {
+        extra.mqstack = [];
+      }
+      return this.enterCLS(tattoo, rpcName, extra, async () => {
+        const options = { correlationId, headers };
+        const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
+        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
+        try {
+          this.increaseRequest(rpcName, 1);
+          await Bluebird.resolve()
+            .then(()  => sanitizeAndValidate(parsed, rpcOptions))
+            .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
+            .then(req => this.dohook('pre', type, req))
+            .then(req => handler(req))
+            .then(res => this.dohook('post', type, res))
+            .then(res => sanitizeAndValidateResult(res, rpcOptions))
+            .then(res => this.reply(replyTo, res, options))
+            .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId }))
+            .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
+            .timeout(RPC_EXEC_TIMEOUT_MS);
+        } catch (err) {
+          await Bluebird.resolve(err)
+            .then(err => this.earlyThrowWith503(rpcName, err, msg))
+            .then(err => this.dohook('pre-error', type, err))
+            .then(err => this.attachExtraError(err, rpcName, parsed))
+            .then(err => this.reply(replyTo, err, options))
+            .then(err => this.dohook('post-error', type, err))
+            .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId, err }))
+            .tap (err => this.logRpcError(err));
+          throw err;
+        } finally {
+          this.increaseRequest(rpcName, -1);
+          if (this.purging && this.onGoingRequest.count < 1) {
+            this.purging();
+          }
+        }
+      });
+    });
+  }
+
 }
