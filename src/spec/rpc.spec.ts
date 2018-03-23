@@ -7,7 +7,7 @@ process.env.STATUS_EXPORT = 'true';
 process.env.STATUS_EXPORT_TIME_MS = 3 * 1000;
 
 import * as Bluebird from 'bluebird';
-import * as fs from 'fs';
+// import * as fs from 'fs';
 
 import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
@@ -16,7 +16,7 @@ import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rp
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
-import { exporter } from '../utils/status-exporter';
+// import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
 
 // tslint:disable-next-line no-var-requires
@@ -597,14 +597,14 @@ describe('RPC-hook', () => {
     }
   }));
 
-  it('should specify filename and instanceId', spec(async () => {
-    const fileName = exporter.initialize({ name: 'rpc', hostname: 'test' });
-    await exporter.saveStatusJsonFile();
-    const file = await fs.readFileSync(fileName, 'utf8');
-    const json = JSON.parse(file);
-    await fs.unlinkSync(fileName);
-    expect(json.instanceId).toBeDefined('test');
-  }));
+  // it('should specify filename and instanceId', spec(async () => {
+  //   const fileName = collector.initialize({ name: 'rpc', hostname: 'test' });
+  //   await collector.saveStatusJsonFile();
+  //   const file = await fs.readFileSync(fileName, 'utf8');
+  //   const json = JSON.parse(file);
+  //   await fs.unlinkSync(fileName);
+  //   expect(json.instanceId).toBeDefined('test');
+  // }));
 
   it('could check the onGoingRequest', spec(async () => {
     rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hi, ' + content));
