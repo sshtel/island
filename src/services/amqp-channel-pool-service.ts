@@ -58,10 +58,10 @@ export class AmqpChannelPoolService {
   async acquireChannel(): Promise<amqp.Channel> {
     // In race condition, the length of idleChannels can over the requested poolSize.
     // But, we allow the little miss at here.
-    if (this.idleChannels.length < this.options.poolSize) {
+    if (this.idleChannels.length < this.options.poolSize!) {
       this.idleChannels.push(await this.createChannel());
     }
-    return _.sample(this.idleChannels);
+    return _.sample(this.idleChannels)!;
   }
 
   async releaseChannel(channel: amqp.Channel, reusable: boolean = false): Promise<void> {

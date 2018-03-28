@@ -182,14 +182,14 @@ export namespace sanitize {
 
   // tslint:disable-next-line
   export class _Array {
-    items: [SanitizePropertyTypes];
+    items: SanitizePropertyTypes[];
 
-    constructor(items: [SanitizePropertyTypes]) {
+    constructor(items: SanitizePropertyTypes[]) {
       this.items = items;
     }
   }
 
-  export function Array(items: [SanitizePropertyTypes]) {
+  export function Array(items: SanitizePropertyTypes[]) {
     return new _Array(items);
   }
 
@@ -243,7 +243,9 @@ export namespace sanitize {
   // schema-inspector 문법은 array에 들어올 수 있는 타입을 한 개 이상 받을 수 있게 되어있지만
   // 여기서는 가장 첫번째 한 개만 처리하고 있다. 인터페이스 구조상 여러 개도 처리할 수 있지만 단순히 안 한 것 뿐이다.
   // @kson //2016-08-04
-  function sanitizeAsArray([item]) {
+  function sanitizeAsArray(items: SanitizePropertyTypes[]) {
+    if (!items) return;
+    const item = items[0];
     const property: SchemaInspectorProperty = { optional: true };
     return parseSanitization(property, item);
   }
@@ -488,16 +490,15 @@ export namespace validate {
   // schema-inspector 문법은 array에 들어올 수 있는 타입을 한 개 이상 받을 수 있게 되어있지만
   // 여기서는 가장 첫번째 한 개만 처리하고 있다. 인터페이스 구조상 여러 개도 처리할 수 있지만 단순히 안 한 것 뿐이다.
   // @kson //2016-08-04
-  function validateAsArray(items?: [ValidatePropertyTypes]) {
+  function validateAsArray(items?: ValidatePropertyTypes[]) {
     if (!items) return;
-
     const item = items[0];
     const property: SchemaInspectorProperty = { optional: false };
     return parseValidation(property, item);
   }
 
   // v.Array로 선언되어 Option이 있는 경우 이 함수가 사용된다.
-  function validateAsArrayWithOptions(obj?: { items?: [ValidatePropertyTypes], opts?: __Array }) {
+  function validateAsArrayWithOptions(obj?: { items?: ValidatePropertyTypes[], opts?: __Array }) {
     obj = obj || {};
     if (!obj.items) return;
     const item = obj.items;
@@ -510,7 +511,7 @@ export namespace validate {
         property[key] = value;
       }
     });
-    return parseValidation(property, item);
+    return parseValidation(property, item[0]);
   }
   // validation의 optional의 기본값은 false
   // https://github.com/Atinux/schema-inspector#v_optional

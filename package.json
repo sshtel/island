@@ -17,13 +17,13 @@
     "coverage": "gulp coverage"
   },
   "dependencies": {
-    "@types/amqplib": "^0.5.0",
+    "@types/amqplib": "^0.5.7",
     "@types/bl": "^0.8.30",
-    "@types/bluebird": "3.5.5",
+    "@types/bluebird": "3.5.20",
     "@types/inversify": "2.0.32",
     "@types/jasmine": "^2.5.37",
     "@types/jsonwebtoken": "7.2.0",
-    "@types/lodash": "4.14.56",
+    "@types/lodash": "4.14.106",
     "@types/mongodb": "2.2.3",
     "@types/mongoose": "4.7.15",
     "@types/msgpack5": "^3.4.0",
@@ -46,6 +46,7 @@
     "island-di": "^1.1.0",
     "island-loggers": "^1.0.0",
     "island-status-exporter": "^2.0.0",
+    "jsonwebtoken": "^8.2.0",
     "lodash": "^4.16.1",
     "mongodb-uri": "0.9.7",
     "mongoose": "^4.6.1",
@@ -58,6 +59,7 @@
     "schema-inspector": "^1.6.6",
     "socket.io": "^1.4.8",
     "source-map-support": "^0.4.2",
+    "types": "^0.1.1",
     "uuid": "^3.0.1",
     "winston": "^2.2.0"
   },
@@ -69,7 +71,7 @@
     "gulp-tslint": "^7.0.1",
     "remap-istanbul": "^0.6.4",
     "std-mocks": "^1.0.1",
-    "tslint": "^4.3.1",
-    "typescript": "<2.2"
+    "tslint": "^5.9.1",
+    "typescript": "^2.8.1"
   }
 }

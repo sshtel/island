@@ -29,7 +29,6 @@
         "no-string-literal": true,
         "no-trailing-whitespace": true,
         "no-unsafe-finally": true,
-        "no-unused-new": true,
         "no-var-keyword": true,
         "no-var-requires": true,
         "object-literal-key-quotes": [

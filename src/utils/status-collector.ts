@@ -8,9 +8,9 @@ import { logger } from '../utils/logger';
 
 export const STATUS_EXPORT: boolean = Environments.isStatusExport();
 export const STATUS_EXPORT_TIME_MS: number = Environments.getStatusExportTimeMs();
-const STATUS_FILE_NAME: string = Environments.getStatusFileName();
-const HOST_NAME: string = Environments.getHostName();
-const SERVICE_NAME: string = Environments.getServiceName();
+const STATUS_FILE_NAME: string = Environments.getStatusFileName()!;
+const HOST_NAME: string = Environments.getHostName()!;
+const SERVICE_NAME: string = Environments.getServiceName()!;
 const CIRCUIT_BREAK_THRESHOLD: number = 0.2;
 const processUptime: Date = new Date();
 // const SAVE_FILE_NAME: string = '';

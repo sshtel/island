@@ -109,8 +109,8 @@ export default class Islet {
       process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
-      const adapters = _.values<IListenableAdapter>(this.adapters)
-                        .filter(adapter => adapter instanceof ListenableAdapter);
+      const adapters = _.values<IAbstractAdapter>(this.adapters)
+                        .filter(adapter => adapter instanceof ListenableAdapter) as IListenableAdapter[];
 
       await Promise.all(adapters.map(adapter => adapter.postInitialize()));
       await Promise.all(adapters.map(adapter => adapter.listen()));
