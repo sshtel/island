@@ -46,6 +46,7 @@ export class Environments {
   static getIslandLoggerLevel(): 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'crit' {
     return process.env.ISLAND_LOGGER_LEVEL || 'info';
   }
+
   static isStatusExport(): boolean {
     return process.env.STATUS_EXPORT === 'true';
   }
