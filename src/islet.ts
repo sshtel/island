@@ -29,7 +29,7 @@ export default class Islet {
    * @param {Microservice} Class
    * @static
    */
-  public static run(subClass: typeof Islet) {
+  public static run(subClass: typeof Islet, opts?: { SIGTERM?: boolean, SIGUSR2?: boolean }) {
     if (this.islet) return;
 
     // Create such a micro-service instance.
@@ -37,7 +37,7 @@ export default class Islet {
     this.registerIslet(islet);
 
     islet.main();
-    return islet.initialize();
+    return islet.initialize(opts);
   }
 
   private static islet: Islet;
@@ -101,12 +101,12 @@ export default class Islet {
   /**
    * @returns {Promise<void>}
    */
-  private async initialize() {
+  private async initialize(opts: {SIGTERM?: boolean, SIGUSR2?: boolean} = { SIGTERM : true, SIGUSR2 : true }) {
     try {
       await this.onPrepare();
       await Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize()));
-      process.once('SIGTERM', this.destroy.bind(this));
-      process.on('SIGUSR2', this.sigInfo.bind(this));
+      if (opts.SIGTERM) process.once('SIGTERM', this.destroy.bind(this));
+      if (opts.SIGUSR2) process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
       const adapters = _.values<IListenableAdapter>(this.adapters)
