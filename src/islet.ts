@@ -117,7 +117,7 @@ export default class Islet {
 
       if (STATUS_EXPORT) {
         logger.notice('INSTANCE STATUS SAVE START');
-        IntervalHelper.setIslandInterval(collector.saveStatus, STATUS_EXPORT_TIME_MS);
+        IntervalHelper.setIslandInterval(collector.saveStatus.bind(collector), STATUS_EXPORT_TIME_MS);
       }
 
       logger.info('started');
