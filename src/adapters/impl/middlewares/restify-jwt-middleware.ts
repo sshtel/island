@@ -22,7 +22,7 @@ export default function jwtParser(options: { secret: string }): restify.RequestH
      *  Host: www.example.com
      *  Authorization: Basic aHR0cHdhdGNoOmY=
      */
-    const header: string = req.headers.authorization;
+    const header: string = (req.headers.authorization) as string;
     if (!header) return next();
 
     const parts = header.split(' ');
