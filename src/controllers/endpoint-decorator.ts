@@ -196,7 +196,8 @@ export namespace sanitize {
   export type SanitizePropertyTypes =
     typeof global.String | string | _String |
     typeof global.Number | number | _Number |
-    typeof Boolean | typeof Date | _Object | _Array | _Any |
+    typeof Boolean | boolean | 
+    typeof Date | _Object | _Array | _Any |
     _ObjectId | _Cider | _NumberOrQuery;
 
   // tslint:disable-next-line cyclomatic-complexity
