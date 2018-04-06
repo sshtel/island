@@ -19,13 +19,13 @@ interface PatternSubscriptionContainer {
   _patternSubscriptions: PatternSubscription[];
 }
 
-export function eventController(target: typeof AbstractController) {
+export function eventController<T>(target: any) {
   const _onInitialized = target.prototype.onInitialized;
   // tslint:disable-next-line
   target.prototype.onInitialized = async function () {
     const result = await _onInitialized.apply(this);
 
-    const constructor = target as typeof AbstractController &
+    const constructor = target as {new (): AbstractController<T>;} &
       EventSubscriptionContainer<Event<any>, any> & PatternSubscriptionContainer;
 
     constructor._eventSubscriptions = DEFAULT_SUBSCRIPTIONS.concat(constructor._eventSubscriptions || []);

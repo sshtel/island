@@ -1,10 +1,10 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-process.env.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
-process.env.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
-process.env.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+process.env.ISLAND_RPC_EXEC_TIMEOUT_MS = '1000';
+process.env.ISLAND_RPC_WAIT_TIMEOUT_MS = '3000';
+process.env.ISLAND_SERVICE_LOAD_TIME_MS = '1000';
 process.env.STATUS_EXPORT = 'true';
-process.env.STATUS_EXPORT_TIME_MS = 3 * 1000;
+process.env.STATUS_EXPORT_TIME_MS = '3000';
 
 import * as Bluebird from 'bluebird';
 // import * as fs from 'fs';
@@ -224,7 +224,7 @@ describe('RPC(isolated test)', () => {
     await amqpChannelPool.initialize({ url });
     await rpcService.initialize(amqpChannelPool);
     const p = rpcService.invoke<string, string>('testMethod3', 'hello');
-    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS, 10) / 2);
+    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS as string, 10) / 2);
     await rpcService.register('testMethod3', msg => Promise.resolve('world'), 'rpc');
     await rpcService.listen();
     const res = await p;

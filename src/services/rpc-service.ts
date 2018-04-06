@@ -105,7 +105,6 @@ type DeferredResponse = { resolve: (msg: Message) => any, reject: (e: Error) => 
 export default class RPCService {
   private requestConsumerInfo: IConsumerInfo[] = [];
   private responseQueueName: string;
-  private responseConsumerInfo: IConsumerInfo;
   private waitingResponse: { [corrId: string]: DeferredResponse } = {};
   private timedOut: { [corrId: string]: string } = {};
   private timedOutOrdered: string[] = [];
@@ -146,7 +145,7 @@ export default class RPCService {
       })
     );
 
-    this.responseConsumerInfo = await this.consumeForResponse();
+    await this.consumeForResponse();
   }
 
   @deprecated()
@@ -490,7 +489,7 @@ export default class RPCService {
     }));
     await this.consumerChannelPool.usingChannel(async channel => {
       await Promise.all(_.map(bindInfos, async ({queue, rpcName, routingKey}) => {
-        await channel.bindQueue(queue, rpcName, routingKey);
+        await channel.bindQueue(queue, rpcName, routingKey!);
       }));
     });
   }
