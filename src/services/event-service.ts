@@ -155,7 +155,7 @@ export class EventService {
     };
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
-        return this._publish(EventService.EXCHANGE_NAME, event.key, content, options);
+        return this._publish(exchange, event.key, content, options);
       }));
   }
 
