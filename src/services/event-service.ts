@@ -133,10 +133,12 @@ export class EventService {
   publishEvent<T extends Event<U>, U>(exchange: string, event: T): Promise<any>;
   publishEvent<T extends Event<U>, U>(event: T): Promise<any>;
   publishEvent(...args): Promise<any> {
+    let exchange = EventService.EXCHANGE_NAME;
     let event: Event<{}>;
     if (args.length === 1) {
       event = args[0];
     } else {
+      exchange = args[0];
       event = args[1];
     }
     const ns = cls.getNamespace('app');
