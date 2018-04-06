@@ -133,12 +133,10 @@ export class EventService {
   publishEvent<T extends Event<U>, U>(exchange: string, event: T): Promise<any>;
   publishEvent<T extends Event<U>, U>(event: T): Promise<any>;
   publishEvent(...args): Promise<any> {
-    let exchange = EventService.EXCHANGE_NAME;
     let event: Event<{}>;
     if (args.length === 1) {
       event = args[0];
     } else {
-      exchange = args[0];
       event = args[1];
     }
     const ns = cls.getNamespace('app');
@@ -153,7 +151,7 @@ export class EventService {
         from: { node: Environments.getHostName(), context, island: this.serviceName, type },
         extra: { sessionType }
       },
-      timestamp: +event.publishedAt || +new Date()
+      timestamp: +event.publishedAt! || +new Date()
     };
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
@@ -244,7 +242,7 @@ export class EventService {
         log.to = {
           context: msg.fields.routingKey,
           island: this.serviceName,
-          node: Environments.getHostName(),
+          node: Environments.getHostName()!,
           type: 'event'
         };
         return Bluebird.resolve(subscriber.handleEvent(content, msg))

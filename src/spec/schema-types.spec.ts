@@ -138,7 +138,7 @@ describe('Schema-types test:', () => {
 
   it(`test validation for string array types `, () => {
     const GAME_MODE_ARRAY1: string[] = ['ITEMINDIVIDUAL', 'ITEMTEAM', 'SPEEDINDIVIDUAL', 'SPEEDTEAM'];
-    const GAME_MODE_ARRAY2: [string] = ['ITEMINDIVIDUAL', 'ITEMTEAM', 'SPEEDINDIVIDUAL', 'SPEEDTEAM'];
+    const GAME_MODE_ARRAY2: string[] = ['ITEMINDIVIDUAL', 'ITEMTEAM', 'SPEEDINDIVIDUAL', 'SPEEDTEAM'];
 
     const result1 = island.validate.validate({ 'gameMode!': island.validate.String({ eq: GAME_MODE_ARRAY1 }) });
     expect(result1).toEqual({
