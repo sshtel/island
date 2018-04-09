@@ -72,7 +72,7 @@ describe('inversify', () => {
   });
 
   it(`should inject Foo into Bar`, () => {
-    const bar = kernelWrapper.get(Bar);
+    const bar: Bar = kernelWrapper.get(Bar);
     expect(bar.letFooSay()).toBe('foo');
   });
 
