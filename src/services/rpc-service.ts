@@ -425,7 +425,7 @@ export default class RPCService {
         options.headers.extra.mqstack = mqstack;
       }
       if (USE_TRACE_HEADER_LOG) {
-        logger.info(`TraceHeaderLog:\n${JSON.stringify(mqstack, null, 2)}`);
+        logger.debug(`TraceHeaderLog:\n${JSON.stringify(mqstack, null, 2)}`);
       }
     }
     await this.channelPool.usingChannel(async channel => {
