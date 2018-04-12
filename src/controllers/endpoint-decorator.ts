@@ -502,7 +502,7 @@ export namespace validate {
   function validateAsArrayWithOptions(obj?: { items?: ValidatePropertyTypes[], opts?: __Array }) {
     obj = obj || {};
     if (!obj.items) return;
-    const item = obj.items;
+    const item = obj.items as any;
     const property: SchemaInspectorProperty = { optional: false };
 
     _.each(obj, (value, key: string) => {
@@ -512,7 +512,7 @@ export namespace validate {
         property[key] = value;
       }
     });
-    return parseValidation(property, item[0]);
+    return parseValidation(property, item);
   }
   // validation의 optional의 기본값은 false
   // https://github.com/Atinux/schema-inspector#v_optional
