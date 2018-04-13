@@ -2,16 +2,11 @@
 require('source-map-support').install();
 require('dns-consul');
 
-import * as cls from 'continuation-local-storage';
-const ns = cls.getNamespace('app') || cls.createNamespace('app');
-
-// tslint:disable
-require('cls-mongoose')(ns);
-require('cls-bluebird')(ns);
-// tslint:enable
-
 export import mongoose = require('mongoose');
 mongoose.Promise = Promise as any;
+import { cls } from './utils/cls';
+cls.init();
+export { cls };
 
 import Islet from './islet';
 export { Islet };
@@ -115,3 +110,4 @@ export { collector } from './utils/status-collector';
 
 export { Di, ObjectWrapper, ObjectFactory } from 'island-di';
 export { Loggers } from 'island-loggers';
+export { RouteLogger } from './utils/route-logger';
