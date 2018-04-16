@@ -150,6 +150,7 @@ $ RABBITMQ_HOST=localhost npm test
 | `STATUS_EXPORT`              | If it is `true`, use island-status-exporter (Defaults to false)   |
 | `STATUS_EXPORT_TIME_MS`      | Time to save file for instance status (Defaults to 10000)         |
 | `STATUS_FILE_NAME`           | island-status-exporter uses this as a name for file               |
+| `STATUS_EXPORT_TYPE`         | status-exporter uses this type for saving data (Default to `FILE`)|
 
 
 ## Milestones

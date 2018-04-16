@@ -2,6 +2,9 @@ import * as amqp from 'amqplib';
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 
+import Islet from '../islet';
+import { BaseEvent } from '../services/event-subscriber';
+import { EventService } from '../services/event-service';
 import { CalculatedData, StatusExporter } from 'island-status-exporter';
 import { Environments } from '../utils/environments';
 import { logger } from '../utils/logger';
@@ -9,11 +12,18 @@ import { logger } from '../utils/logger';
 export const STATUS_EXPORT: boolean = Environments.isStatusExport();
 export const STATUS_EXPORT_TIME_MS: number = Environments.getStatusExportTimeMs();
 const STATUS_FILE_NAME: string = Environments.getStatusFileName()!;
+const STATUS_EXPORT_TYPE: string = Environments.getStatusExportType();
 const HOST_NAME: string = Environments.getHostName()!;
 const SERVICE_NAME: string = Environments.getServiceName()!;
 const CIRCUIT_BREAK_THRESHOLD: number = 0.2;
 const processUptime: Date = new Date();
 // const SAVE_FILE_NAME: string = '';
+
+export class StatusExport extends BaseEvent<CalculatedData> {
+  constructor(args: CalculatedData) {
+    super('island.status.export', args);
+  }
+}
 
 if (STATUS_EXPORT)
   StatusExporter.initialize({
@@ -63,13 +73,15 @@ export class StatusCollector {
   private collectedData: { [type: string]: RequestStatistics } = {};
   private onGoingMap: Map<string, any> = new Map();
   private startedAt: number = +new Date();
+  private eventService: EventService;
 
   public async saveStatus() {
-    const exportTarget = 'FILE';
     const calculated: CalculatedData = this.calculateMeasurementsByType();
-    switch (exportTarget) {
+    switch (STATUS_EXPORT_TYPE) {
       case 'FILE':
         return await StatusExporter.saveStatusJsonFile(calculated);
+      case 'EVENT':
+        return await this.sendStatusJsonEvent(calculated);
       default:
         break;
     }
@@ -140,6 +152,13 @@ export class StatusCollector {
     const stat = this.collectedData[typeName] = this.collectedData[typeName] || RequestStatisticsMaker.create();
     const failedRate = 1 - (stat.executedCount / (stat.requestCount - stat.onGoingRequestCount));
     return failedRate > CIRCUIT_BREAK_THRESHOLD;
+  }
+
+  private sendStatusJsonEvent(data: CalculatedData) {
+    if (!this.eventService) {
+      this.eventService = Islet.getIslet().getAdaptee<EventService>('event');
+    }
+    return this.eventService && this.eventService.publishEvent(new StatusExport(data));
   }
 
   private getStat(type: string,  name: string): RequestStatistics {
