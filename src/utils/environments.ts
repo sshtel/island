@@ -61,6 +61,10 @@ export class Environments {
     return process.env.STATUS_FILE_NAME;
   }
 
+  static getStatusExportType(): string {
+    return process.env.STATUS_EXPORT_TYPE || 'FILE';
+  }
+
   static getIslandTracemqHost(): string | undefined {
     return process.env.ISLAND_TRACEMQ_HOST;
   }

@@ -16,7 +16,8 @@ import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rp
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
-// import { collector } from '../utils/status-collector';
+import { StatusExporter } from 'island-status-exporter';
+import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
 
 // tslint:disable-next-line no-var-requires
@@ -597,14 +598,10 @@ describe('RPC-hook', () => {
     }
   }));
 
-  // it('should specify filename and instanceId', spec(async () => {
-  //   const fileName = collector.initialize({ name: 'rpc', hostname: 'test' });
-  //   await collector.saveStatusJsonFile();
-  //   const file = await fs.readFileSync(fileName, 'utf8');
-  //   const json = JSON.parse(file);
-  //   await fs.unlinkSync(fileName);
-  //   expect(json.instanceId).toBeDefined('test');
-  // }));
+  it('should save status file', spec(async () => {
+    StatusExporter.initialize({name: 'status_collect'})
+    await collector.saveStatus();
+  }));
 
   it('could check the onGoingRequest', spec(async () => {
     rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hi, ' + content));
