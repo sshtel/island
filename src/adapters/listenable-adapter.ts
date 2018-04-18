@@ -22,13 +22,13 @@ export interface IListenableAdapter extends IAbstractAdapter {
  * @implements IListenableAdapter
  */
 export default class ListenableAdapter<T, U> extends AbstractAdapter<T, U> implements IListenableAdapter {
-  private _controllersClasses: {new(...args: any[]): AbstractController<T>;}[] = [];
+  private _controllersClasses: {new(...args: any[]): AbstractController<T>}[] = [];
   private _controllers: AbstractController<T>[] = [];
 
   /**
    * @param {AbstractController} Class
    */
-  public registerController(Class: {new(...args: any[]): AbstractController<T>;}) {
+  public registerController(Class: {new(...args: any[]): AbstractController<T>}) {
     this._controllersClasses.push(Class);
   }
 

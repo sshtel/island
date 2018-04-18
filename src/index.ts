@@ -1,6 +1,5 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-require('dns-consul');
 
 import * as cls from 'continuation-local-storage';
 const ns = cls.getNamespace('app') || cls.createNamespace('app');
