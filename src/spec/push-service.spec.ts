@@ -57,7 +57,7 @@ describe('PushService test : ', () => {
     const msg = 'testMessage';
     amqpChannelPool.usingChannel(channel => {
       return channel.consume(destinationQueue, content => {
-        expect(PushService.decode(content.content)).toBe('testMessage');
+        expect(PushService.decode(content && content.content)).toBe('testMessage');
       });
     }).then(() => {
       return pushService.unicast(sourceExchange, msg);
@@ -69,7 +69,7 @@ describe('PushService test : ', () => {
     const msg = 'testMessage';
     amqpChannelPool.usingChannel(channel => {
       return channel.consume(destinationQueue, content => {
-        expect(PushService.decode(content.content)).toBe('testMessage');
+        expect(PushService.decode(content && content.content)).toBe('testMessage');
       });
     }).then(() => {
       return pushService.multicast(sourceExchange, msg);
@@ -148,5 +148,27 @@ describe('PushService test : ', () => {
         return;
       })
       .then(done, done.fail);
+  });
+
+  // FIXME: we should test with PushService, not copy logics
+  it('push test #11: PushService Decode JSON type', () => {
+    const test = { test: 1 };
+    const content = new Buffer('JSON' + JSON.stringify(test));
+    const decodeData = PushService.decode(content);
+    expect(decodeData).toEqual(test);
+  });
+
+  it('push test #12: PushService Decode msgpack type', () => {
+    const test = { test: 1 };
+    const content = Buffer.concat([new Buffer('MSGP'), msgpack.encode(test)]);
+    const decodeData = PushService.decode(content);
+    expect(decodeData).toEqual(test);
+  });
+
+  it('push test #13: PushService Decode old type msgpack type', () => {
+    const test = { test: 1 };
+    const content = msgpack.encode(test);
+    const decodeData = PushService.decode(content);
+    expect(decodeData).toEqual(test);
   });
 });

@@ -6,25 +6,22 @@ import * as util from 'util';
 import { logger } from '../utils/logger';
 
 export interface AmqpOptions {
+  // `url` will be passed through into `amqp.connect()`
   url: string;
+  // `socketOptions` will be passed through into `amqp.connect()`
   socketOptions?: { noDelay?: boolean, heartbeat?: number };
+  // max length of channel pool to allow.
   poolSize?: number;
   name?: string;
   prefetchCount?: number;
 }
 
-export interface ChannelInfo {
-  channel: amqp.Channel;
-  date: number;
-}
-
 export class AmqpChannelPoolService {
-  static DEFAULT_POOL_SIZE: number = 100;
+  static DEFAULT_POOL_SIZE: number = 16;
 
   private connection: amqp.Connection;
   private options: AmqpOptions;
-  private openChannels: amqp.Channel[] = [];
-  private idleChannels: ChannelInfo[] = [];
+  private idleChannels: amqp.Channel[] = [];
   private initResolver: Bluebird.Resolver<void>;
 
   constructor() {
@@ -59,21 +56,16 @@ export class AmqpChannelPoolService {
   }
 
   async acquireChannel(): Promise<amqp.Channel> {
-    return Promise.resolve(Bluebird.try(() => {
-      const info = this.idleChannels.shift();
-      return info && info.channel || this.createChannel();
-    }));
+    // In race condition, the length of idleChannels can over the requested poolSize.
+    // But, we allow the little miss at here.
+    if (this.idleChannels.length < this.options.poolSize!) {
+      this.idleChannels.push(await this.createChannel());
+    }
+    return _.sample(this.idleChannels)!;
   }
 
   async releaseChannel(channel: amqp.Channel, reusable: boolean = false): Promise<void> {
-    if (!_.includes(this.openChannels, channel)) {
-      return;
-    }
-    if (reusable && this.idleChannels.length < (this.options.poolSize as number)) {
-      this.idleChannels.push({ channel, date: +new Date() });
-      return;
-    }
-    return channel.close();
+    // the channels will never be released unless caused by MQ itself
   }
 
   async usingChannel<T>(task: (channel: amqp.Channel) => PromiseLike<T>) {
@@ -91,7 +83,6 @@ export class AmqpChannelPoolService {
     const channel = await this.connection.createChannel();
 
     this.setChannelEventHandler(channel);
-    this.openChannels.push(channel);
     return channel;
   }
 
@@ -102,12 +93,10 @@ export class AmqpChannelPoolService {
         if (err.stack) {
           logger.debug(err.stack);
         }
+        _.remove(this.idleChannels, channel);
       })
       .on('close', () => {
-        _.remove(this.idleChannels, (cur: ChannelInfo) => {
-          return cur.channel === channel;
-        });
-        _.pull(this.openChannels, channel);
+        _.remove(this.idleChannels, channel);
       });
   }
 }

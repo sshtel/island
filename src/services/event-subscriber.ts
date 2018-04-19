@@ -12,6 +12,17 @@ export class BaseEvent<T> implements Event<T> {
   }
 }
 
+export class DebugBaseEvent<T> implements Event<T> {
+  constructor(public key: string, public args: T, public publishedAt?: Date) {
+  }
+}
+
+export class DebugEvent<T> extends DebugBaseEvent<T> {
+  constructor(public debugClass: { key: string, args: T }, public publishedAt?: Date) {
+    super(debugClass.key, debugClass.args, publishedAt);
+  }
+}
+
 export interface EventHandler<T> {
   (event: T): Promise<any> | any;
 }

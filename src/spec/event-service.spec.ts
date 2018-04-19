@@ -1,16 +1,11 @@
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { EventHookType, EventService } from '../services/event-service';
-import { Event, PatternSubscriber } from '../services/event-subscriber';
+import { BaseEvent, DebugEvent, PatternSubscriber } from '../services/event-subscriber';
+import { Environments } from '../utils/environments';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { TraceLog } from '../utils/tracelog';
 
 import Bluebird = require('bluebird');
-
-class BaseEvent<T> implements Event<T> {
-  publishedAt: Date;
-  constructor(public key: string, public args: T) {
-  }
-}
 
 class TestEvent extends BaseEvent<string> {
   constructor(args: string) {
@@ -53,6 +48,15 @@ describe('EventService', () => {
       .catch(done.fail);
   });
 
+  it('can change publishedAt for debug', done => {
+    eventService.subscribeEvent(TestEvent, (event: TestEvent) => {
+      expect(event.args).toBe('bbb');
+      setTimeout(done, 500);
+    })
+      .then(() => eventService.publishEvent(new DebugEvent(new TestEvent('bbb'), new Date(1004))))
+      .catch(done.fail);
+  });
+
   it('can unsubscribe the event', done => {
     pending('can unsubscribe the event - not implemented');
   });
@@ -75,6 +79,33 @@ describe('EventService', () => {
       .then(() => eventService.publishEvent(new TestPatternEvent('wildcard')))
       .catch(done.fail);
   });
+
+  it('can log when ISLAND_IGNORE_EVENT_LOG is not set', spec(async () => {
+    process.env.ISLAND_IGNORE_EVENT_LOG = '';
+    const eventRoutingKey1 = 'print.pattern';
+    const eventRoutingKey2 = 'test.pattern';
+    const eventRoutingKey3 = 'event.pattern';
+    const ignoreEventLogRegexp = (Environments.getIgnoreEventLogRegexp() &&
+      new RegExp(Environments.getIgnoreEventLogRegexp(), 'g')) as RegExp;
+
+    expect(!ignoreEventLogRegexp || !eventRoutingKey1.match(ignoreEventLogRegexp)).toBe(true);
+    expect(!ignoreEventLogRegexp || !eventRoutingKey2.match(ignoreEventLogRegexp)).toBe(true);
+    expect(!ignoreEventLogRegexp || !eventRoutingKey3.match(ignoreEventLogRegexp)).toBe(true);
+  }));
+
+  it('If ISLAND_IGNORE_EVENT_LOG is set, the special Event Log can be ignored', spec(async () => {
+    process.env.ISLAND_IGNORE_EVENT_LOG = 'test,event';
+    const eventRoutingKey1 = 'print.pattern';
+    const eventRoutingKey2 = 'test.pattern';
+    const eventRoutingKey3 = 'event.pattern';
+    const ignoreEventLogRegexp = (Environments.getIgnoreEventLogRegexp() &&
+      new RegExp(Environments.getIgnoreEventLogRegexp(), 'g')) as RegExp;
+
+    expect(!ignoreEventLogRegexp || !eventRoutingKey1.match(ignoreEventLogRegexp)).toBe(true);
+    expect(!ignoreEventLogRegexp || !eventRoutingKey2.match(ignoreEventLogRegexp)).toBe(false);
+    expect(!ignoreEventLogRegexp || !eventRoutingKey3.match(ignoreEventLogRegexp)).toBe(false);
+    process.env.ISLAND_IGNORE_EVENT_LOG = '';
+  }));
 
   afterAll(done => {
     Bluebird.delay(500)
@@ -155,5 +186,16 @@ describe('Event-hook', () => {
       throw new Error('custom-event-error');
     });
     await eventService.publishEvent(new TestEvent('bbb'));
+  }));
+
+  it('could check the onGoingRequest', spec(async () => {
+    eventService.registerHook(EventHookType.EVENT, p => {
+      return Promise.resolve('x' + p);
+    });
+    await eventService.subscribeEvent(TestEvent, (event: TestEvent) => {
+      expect(event.args).toBe('xbbb');
+    });
+    await eventService.publishEvent(new TestEvent('bbb'));
+    await eventService.sigInfo();
   }));
 });

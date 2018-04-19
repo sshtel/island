@@ -1,10 +1,13 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-process.env.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
-process.env.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
-process.env.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+process.env.ISLAND_RPC_EXEC_TIMEOUT_MS = '1000';
+process.env.ISLAND_RPC_WAIT_TIMEOUT_MS = '3000';
+process.env.ISLAND_SERVICE_LOAD_TIME_MS = '1000';
+process.env.STATUS_EXPORT = 'true';
+process.env.STATUS_EXPORT_TIME_MS = '3000';
 
 import * as Bluebird from 'bluebird';
+// import * as fs from 'fs';
 
 import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
@@ -13,6 +16,8 @@ import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rp
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
+import { StatusExporter } from 'island-status-exporter';
+import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
 
 // tslint:disable-next-line no-var-requires
@@ -39,46 +44,41 @@ describe('RpcResponse', () => {
   });
 });
 
-describe('RPC test:', () => {
+describe('RPC(isolated test)', () => {
   const rpcService = new RPCService('haha');
   const amqpChannelPool = new AmqpChannelPoolService();
-  beforeAll(spec(async () => {
+  beforeEach(spec(async () => {
     const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
     await amqpChannelPool.initialize({ url });
     await rpcService.initialize(amqpChannelPool);
   }));
 
-  afterAll(done => {
-    rpcService.purge()
-      .then(() => Bluebird.delay(100)) // to have time to send ack
-      .then(() => amqpChannelPool.purge())
-      .then(() => TraceLog.purge())
-      .then(done)
-      .catch(done.fail);
-  });
+  afterEach(spec(async () => {
+    await rpcService.purge();
+    await Bluebird.delay(100); // to have time to send ack
+    await amqpChannelPool.purge();
+    await TraceLog.purge();
+  }));
 
   it('rpc test #1: rpc call', spec(async () => {
     await rpcService.register('testMethod', msg => {
       expect(msg).toBe('hello');
       return Promise.resolve('world');
     }, 'rpc');
-    const res = await rpcService.invoke<string, string>('testMethod', 'hello');
-    expect(res).toBe('world');
-  }));
-
-  it('rpc test #2: rpc call again', spec(async () => {
+    await rpcService.listen();
     const res = await rpcService.invoke<string, string>('testMethod', 'hello');
     expect(res).toBe('world');
   }));
 
   it('rpc test #3: purge', spec(async () => {
-    await rpcService.unregister('testMethod');
+    await rpcService.unregisterAll();
   }));
 
   it('should handle Error()', spec(async ()  => {
     await rpcService.register('testMethod', msg => {
       throw new Error('custom error');
     }, 'rpc');
+    await rpcService.listen();
     try {
       await rpcService.invoke<string, string>('testMethod', 'hello');
     } catch (e) {
@@ -88,7 +88,7 @@ describe('RPC test:', () => {
       expect(e.reason).toEqual('custom error');
       expect(e.extra.uuid).not.toBeFalsy();
     }
-    await rpcService.unregister('testMethod');
+    await rpcService.unregisterAll();
   }));
 
   it('should handle TypeError()', spec(async ()  => {
@@ -96,6 +96,7 @@ describe('RPC test:', () => {
       const tmp: any = (() => undefined)();
       return tmp.xx;
     }, 'rpc');
+    await rpcService.listen();
     try {
       await rpcService.invoke<string, string>('testMethod', 'hello');
     } catch (e) {
@@ -104,7 +105,7 @@ describe('RPC test:', () => {
       expect(e.name).toEqual('TypeError');
       expect(e.reason).toEqual(`Cannot read property 'xx' of undefined`);
     }
-    await rpcService.unregister('testMethod');
+    await rpcService.unregisterAll();
   }));
 
   it('should handle third-party error()', spec(async ()  => {
@@ -112,6 +113,7 @@ describe('RPC test:', () => {
       await Bluebird.delay(100).timeout(10);
       return 1;
     }, 'rpc');
+    await rpcService.listen();
     try {
       await rpcService.invoke<string, string>('testMethod', 'hello');
     } catch (e) {
@@ -121,7 +123,7 @@ describe('RPC test:', () => {
       expect(e.reason).toEqual('operation timed out');
       expect(e.extra.uuid).not.toBeFalsy();
     }
-    await rpcService.unregister('testMethod');
+    await rpcService.unregisterAll();
   }));
 
   it('rpc test #5: should prevent to get new RPC request safely', spec(async () => {
@@ -129,11 +131,12 @@ describe('RPC test:', () => {
       await Bluebird.delay(msg);
       return msg;
     }, 'rpc');
+    await rpcService.listen();
     const promises = [
       rpcService.invoke('testMethod', 100),
       rpcService.invoke('testMethod', 10)
         .then(async res => {
-          await rpcService.pause('testMethod');
+          await rpcService.pauseAll();
           return res;
         })
     ];
@@ -155,6 +158,7 @@ describe('RPC test:', () => {
         return Promise.resolve('world');
       }, 'rpc')
     ]);
+    await rpcService.listen();
     await rpcService.invoke('AAA', 50);
   }));
 
@@ -168,6 +172,7 @@ describe('RPC test:', () => {
       }
     };
     await rpcService.register('testSchemaMethod', msg => Promise.resolve('world'), 'rpc', rpcOptions);
+    await rpcService.listen();
     const res = await rpcService.invoke<string, string>('testSchemaMethod', 'hello');
     expect(res).toBe('world');
   }));
@@ -195,7 +200,7 @@ describe('RPC test:', () => {
     const usingChannel = amqpChannelPool.usingChannel;
     (amqpChannelPool as any).usingChannel = async cb => {
       await cb({
-        sendToQueue: (name, content, options) => { throw new Error('haha'); }
+        publish: (name, routingKey, content, options) => { throw new Error('haha'); }
       });
     };
 
@@ -210,7 +215,8 @@ describe('RPC test:', () => {
   }));
 
   it('should keeping a constant queue during restart the service', spec(async () => {
-    await rpcService.register('testMethod3', msg => Promise.resolve('world'), 'rpc');
+    await rpcService.register('testMethod3', async msg => 'world', 'rpc');
+    await rpcService.listen();
     await rpcService.purge();
     await amqpChannelPool.purge();
     await TraceLog.purge();
@@ -219,93 +225,18 @@ describe('RPC test:', () => {
     await amqpChannelPool.initialize({ url });
     await rpcService.initialize(amqpChannelPool);
     const p = rpcService.invoke<string, string>('testMethod3', 'hello');
-    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS, 10) / 2);
+    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS as string, 10) / 2);
     await rpcService.register('testMethod3', msg => Promise.resolve('world'), 'rpc');
+    await rpcService.listen();
     const res = await p;
     expect(res).toBe('world');
-  }));
-
-  it('should be able to pause and resume', spec(async () => {
-    await rpcService.register('testPause', msg => Promise.resolve(msg + ' world'), 'rpc');
-    await rpcService.pause('testPause');
-
-    const p = rpcService.invoke<string, string>('testPause', 'hello');
-    await rpcService.resume('testPause');
-    const res = await p;
-    expect(res).toBe('hello world');
-  }));
-
-  it('should know where the RPC error come from', spec(async () => {
-    const rpcServiceSecond = new RPCService('second-island');
-    await rpcServiceSecond.initialize(amqpChannelPool);
-    const rpcServiceThird = new RPCService('third-island');
-    await rpcServiceThird.initialize(amqpChannelPool);
-
-    await rpcServiceThird.register('third', msg => {
-      throw new Error('custom error');
-    }, 'rpc');
-    await rpcServiceSecond.register('second', async msg => {
-      await rpcServiceSecond.invoke<string, string>('third', 'hello');
-    }, 'rpc');
-    await rpcService.register('first', async msg => {
-      await rpcService.invoke<string, string>('second', 'hello');
-    }, 'rpc');
-    try {
-      await rpcServiceSecond.invoke<string, string>('first', 'hello');
-    } catch (e) {
-      await rpcServiceSecond.unregister('second');
-      await rpcServiceThird.unregister('third');
-
-      expect(e instanceof AbstractEtcError).toBeTruthy();
-      expect(e.code).toEqual(10020001);
-      expect(e.name).toEqual('Error');
-      expect(e.extra.island).toBe('third-island');
-      expect(e.extra.rpcName).toBe('third');
-    }
-  }));
-
-  it('should know where the RPC validation error come from', spec(async () => {
-    const rpcServiceSecond = new RPCService('second-island');
-    await rpcServiceSecond.initialize(amqpChannelPool);
-    const rpcServiceThird = new RPCService('third-island');
-    await rpcServiceThird.initialize(amqpChannelPool);
-    const validation = { type: 'string' };
-    const rpcOptions: RpcOptions = {
-      schema: {
-        query: { sanitization: {}, validation },
-        result: { sanitization: {}, validation }
-      }
-    };
-
-    await rpcServiceThird.register('third', msg => Promise.resolve('hello'), 'rpc', rpcOptions);
-
-    await rpcServiceSecond.register('second', msg => {
-      return rpcServiceSecond.invoke<any, string>('third', 1234);
-    }, 'rpc');
-
-    await rpcService.register('first', msg => {
-      return rpcService.invoke<string, string>('second', 'hello');
-    }, 'rpc');
-
-    try {
-      const p = await rpcServiceSecond.invoke<string, string>('first', 'hello');
-      console.log(p);
-    } catch (e) {
-      await rpcServiceSecond.unregister('second');
-      await rpcServiceThird.unregister('third');
-
-      expect(e instanceof AbstractLogicError).toBeTruthy();
-      expect(e.code).toEqual(10010002); // UNKNOWN/ISLANDJS/0002/WRONG_PARAMETER_SCHEMA
-      expect(e.name).toEqual('LogicError');
-      expect(e.extra.island).toBe('third-island');
-      expect(e.extra.rpcName).toBe('third');
-    }
   }));
 
   it('should show an extra info of an error', spec(async () => {
     await rpcService.register('hoho', req => {
       throw new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
     }, 'rpc');
+    await rpcService.listen();
 
     try {
       await rpcService.invoke('hoho', 'asdf');
@@ -314,25 +245,6 @@ describe('RPC test:', () => {
       expect(e.extra.req).toEqual('asdf');
     }
   }));
-});
-
-describe('RPC(isolated test)', () => {
-  const rpcService = new RPCService('haha');
-  const amqpChannelPool = new AmqpChannelPoolService();
-  beforeEach(spec(async () => {
-    const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
-    await amqpChannelPool.initialize({ url });
-    await rpcService.initialize(amqpChannelPool);
-  }));
-
-  afterEach(done => {
-    rpcService.purge()
-      .then(() => Bluebird.delay(100)) // to have time to send ack
-      .then(() => amqpChannelPool.purge())
-      .then(() => TraceLog.purge())
-      .then(done)
-      .catch(done.fail);
-  });
 
   it('should be canceled by timeout', spec(async () => {
     try {
@@ -352,6 +264,7 @@ describe('RPC(isolated test)', () => {
     await rpcService.register('out', () => {
       return rpcService.invoke('unmethod', 'arg');
     }, 'rpc');
+    await rpcService.listen();
     try {
       await rpcService.invoke('out', 'abc');
       fail();
@@ -368,6 +281,7 @@ describe('RPC(isolated test)', () => {
       (e as any).statusCode = 503;
       throw e;
     }, 'rpc');
+    await rpcService.listen();
     await rpcService.invoke('testMethod', 'hello').catch(e => e);
     expect(called).toBeGreaterThanOrEqual(2);
   }));
@@ -376,6 +290,7 @@ describe('RPC(isolated test)', () => {
     await rpcService.register('testMethod', async () => {
       return 'haha';
     }, 'rpc');
+    await rpcService.listen();
     const res = await rpcService.invoke<string, {body: string, raw: Buffer}>
                         ('testMethod', 'hello', {withRawdata: true});
     expect(res.body).toEqual('haha');
@@ -441,11 +356,95 @@ describe('RPC(isolated test)', () => {
       throw e;
     }, 'rpc');
     await rpcService.register('out', () => rpcService.invoke('in', 'a'), 'rpc');
+    await rpcService.listen();
     try {
       await rpcService.invoke('out', 'b');
     } catch (e) {
       expect(e.extra.uuid).toEqual(uuid);
     }
+  }));
+
+  it('should know where the RPC error come from', spec(async () => {
+    const rpcServiceSecond = new RPCService('second-island');
+    await rpcServiceSecond.initialize(amqpChannelPool);
+    const rpcServiceThird = new RPCService('third-island');
+    await rpcServiceThird.initialize(amqpChannelPool);
+
+    await rpcServiceThird.register('third', msg => {
+      throw new Error('custom error');
+    }, 'rpc');
+    await rpcServiceThird.listen();
+    await rpcServiceSecond.register('second', async msg => {
+      await rpcServiceSecond.invoke<string, string>('third', 'hello');
+    }, 'rpc');
+    await rpcServiceSecond.listen();
+    await rpcService.register('first', async msg => {
+      await rpcService.invoke<string, string>('second', 'hello');
+    }, 'rpc');
+    await rpcService.listen();
+    try {
+      await rpcServiceSecond.invoke<string, string>('first', 'hello');
+    } catch (e) {
+      await rpcServiceSecond.unregisterAll();
+
+      expect(e instanceof AbstractEtcError).toBeTruthy();
+      expect(e.code).toEqual(10020001);
+      expect(e.name).toEqual('Error');
+      expect(e.extra.island).toBe('third-island');
+      expect(e.extra.rpcName).toBe('third');
+    }
+  }));
+
+  it('should know where the RPC validation error come from', spec(async () => {
+    const rpcServiceSecond = new RPCService('second-island');
+    await rpcServiceSecond.initialize(amqpChannelPool);
+    const rpcServiceThird = new RPCService('third-island');
+    await rpcServiceThird.initialize(amqpChannelPool);
+    const validation = { type: 'string' };
+    const rpcOptions: RpcOptions = {
+      schema: {
+        query: { sanitization: {}, validation },
+        result: { sanitization: {}, validation }
+      }
+    };
+
+    await rpcServiceThird.register('third', msg => Promise.resolve('hello'), 'rpc', rpcOptions);
+    await rpcServiceThird.listen();
+
+    await rpcServiceSecond.register('second', msg => {
+      return rpcServiceSecond.invoke<any, string>('third', 1234);
+    }, 'rpc');
+    await rpcServiceSecond.listen();
+
+    await rpcService.register('first', msg => {
+      return rpcService.invoke<string, string>('second', 'hello');
+    }, 'rpc');
+    await rpcService.listen();
+
+    try {
+      const p = await rpcServiceSecond.invoke<string, string>('first', 'hello');
+      console.log(p);
+    } catch (e) {
+      await rpcServiceSecond.unregisterAll();
+      await rpcServiceThird.unregisterAll();
+
+      expect(e instanceof AbstractLogicError).toBeTruthy();
+      expect(e.code).toEqual(10010002); // UNKNOWN/ISLANDJS/0002/WRONG_PARAMETER_SCHEMA
+      expect(e.name).toEqual('LogicError');
+      expect(e.extra.island).toBe('third-island');
+      expect(e.extra.rpcName).toBe('third');
+    }
+  }));
+
+  it('should be able to pause and resume', spec(async () => {
+    await rpcService.register('testPause', msg => Promise.resolve(msg + ' world'), 'rpc');
+    await rpcService.listen();
+    await rpcService.pauseAll();
+
+    const p = rpcService.invoke<string, string>('testPause', 'hello');
+    await rpcService.resumeAll();
+    const res = await p;
+    expect(res).toBe('hello world');
   }));
 });
 
@@ -457,6 +456,7 @@ describe('RPC with reviver', async () => {
   async function invokeTest(opts?) {
     await rpcService.initialize(amqpChannelPool, opts);
     await rpcService.register('testMethod', msg => Promise.resolve(new Date().toISOString()), 'rpc');
+    await rpcService.listen();
     return await rpcService.invoke<string, any>('testMethod', 'hello');
   }
 
@@ -504,6 +504,7 @@ describe('RPC-hook', () => {
   it('could change the request body by pre-hook', spec(async () => {
     rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hi, ' + content));
     await rpcService.register('testMethod', msg => Promise.resolve(msg + ' world'), 'rpc');
+    await rpcService.listen();
     const res = await rpcService.invoke('testMethod', 'hello');
     expect(res).toEqual('hi, hello world');
   }));
@@ -514,6 +515,7 @@ describe('RPC-hook', () => {
       return Promise.resolve(content);
     });
     await rpcService.register('testMethod', msg => Promise.resolve({[msg]: 'world'}), 'rpc');
+    await rpcService.listen();
     const res = await rpcService.invoke('testMethod', 'hello');
     expect(res).toEqual({__fixed: true, hello: 'world'});
   }));
@@ -522,6 +524,7 @@ describe('RPC-hook', () => {
     rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hi, ' + content));
     rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hey, ' + content));
     await rpcService.register('testMethod', msg => Promise.resolve(msg + ' world'), 'rpc');
+    await rpcService.listen();
     const res = await rpcService.invoke('testMethod', 'hello');
     expect(res).toEqual('hey, hi, hello world');
   }));
@@ -530,6 +533,7 @@ describe('RPC-hook', () => {
     rpcService.registerHook(RpcHookType.POST_RPC, content => Promise.resolve({first: content}));
     rpcService.registerHook(RpcHookType.POST_RPC, content => Promise.resolve({second: content}));
     await rpcService.register('testMethod', msg => Promise.resolve({[msg]: 'world'}), 'rpc');
+    await rpcService.listen();
     const res = await rpcService.invoke('testMethod', 'hello');
     expect(res).toEqual({second: {first: {hello: 'world'}}});
   }));
@@ -541,6 +545,7 @@ describe('RPC-hook', () => {
     rpcService.registerHook(RpcHookType.POST_RPC, content => Promise.resolve({second: content}));
     await rpcService.register('world', msg => Promise.resolve({[msg]: 'world'}), 'rpc');
     await rpcService.register('hell', msg => Promise.resolve({[msg]: 'hell'}), 'rpc');
+    await rpcService.listen();
 
     expect(await rpcService.invoke('world', 'hello'))
       .toEqual({second: {first: {'hey-hi-hello': 'world'}}});
@@ -556,6 +561,7 @@ describe('RPC-hook', () => {
       return Promise.resolve(e);
     });
     await rpcService.register('world', msg => Promise.reject(new Error('custom error')), 'rpc');
+    await rpcService.listen();
 
     try {
       await rpcService.invoke('world', 'hello');
@@ -580,6 +586,7 @@ describe('RPC-hook', () => {
       return Promise.resolve(e);
     });
     await rpcService.register('world', msg => Promise.reject(new Error('custom error')), 'rpc');
+    await rpcService.listen();
 
     try {
       await rpcService.invoke('world', 'hello');
@@ -589,5 +596,19 @@ describe('RPC-hook', () => {
       expect(e.extra.message).toEqual('pre-hooked');
       expect(haveBeenCalled).toBeTruthy();
     }
+  }));
+
+  it('should save status file', spec(async () => {
+    StatusExporter.initialize({name: 'status_collect'})
+    await collector.saveStatus();
+  }));
+
+  it('could check the onGoingRequest', spec(async () => {
+    rpcService.registerHook(RpcHookType.PRE_RPC, content => Promise.resolve('hi, ' + content));
+    await rpcService.register('testMethod', msg => Promise.resolve(msg + ' world'), 'rpc');
+    await rpcService.listen();
+    const res = await rpcService.invoke('testMethod', 'hello');
+    expect(res).toEqual('hi, hello world');
+    await rpcService.sigInfo();
   }));
 });

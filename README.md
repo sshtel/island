@@ -143,9 +143,14 @@ $ RABBITMQ_HOST=localhost npm test
 | `ISLAND_RPC_WAIT_TIMEOUT_MS` | Timeout during call (Defaults to 60000)                           |
 | `ISLAND_SERVICE_LOAD_TIME_MS`| Time to load service (Defaults to 60000)                          |
 | `ISLAND_LOGGER_LEVEL`        | Logger level of category `island`                                 |
+| `ISLAND_IGNORE_EVENT_LOG`    | Ignore the log for Event containing this Env (template is `A,B`)  |
 | `ISLAND_TRACEMQ_HOST`        | MQ(formatted by amqp URI) for TraceLog. If omitted it doesn't log |
 | `ISLAND_TRACEMQ_QUEUE`       | A queue name to log TraceLog                                      |
 | `SERIALIZE_FORMAT_PUSH`      | currently able Push format json and msgpack (Default to msgpack)  |
+| `STATUS_EXPORT`              | If it is `true`, use island-status-exporter (Defaults to false)   |
+| `STATUS_EXPORT_TIME_MS`      | Time to save file for instance status (Defaults to 10000)         |
+| `STATUS_FILE_NAME`           | island-status-exporter uses this as a name for file               |
+| `STATUS_EXPORT_TYPE`         | status-exporter uses this type for saving data (Default to `FILE`)|
 
 
 ## Milestones

@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-
+import { Environments } from '../utils/environments';
 import { FatalError, ISLAND } from '../utils/error';
 
 export enum EnsureOptions {
@@ -20,12 +20,20 @@ export interface EndpointOptions {
   level?: number;
   admin?: boolean;
   ensure?: number;
-  quota?: EndpointQuotaOptions;
+  quota?: EndpointUserQuotaOptions;
+  serviceQuota?: EndpointServiceQuotaOptions;
+  extra?: { [key: string]: any };
+  sessionGroup?: string;
 }
 
-export interface EndpointQuotaOptions {
+export interface EndpointUserQuotaOptions {
   limit?: number;
   banSecs?: number;
+  group?: string[];
+}
+
+export interface EndpointServiceQuotaOptions {
+  limit?: number;
   group?: string[];
 }
 
@@ -54,7 +62,7 @@ export interface EndpointSchemaOptions {
 
 type PrimitiveTypeNames = 'string' | 'number' | 'integer' | 'boolean' | 'null';
 type ObjectTypeNames = 'date' | 'object' | 'array' | 'any';
-type CustomTypeNames = '$oid' | '$cider' | '$numberOrQuery';
+type CustomTypeNames = '$oid' | '$cider' | '$numberOrQuery' | '$html';
 
 type SchemaInspectorProperty = {
   optional?: boolean;
@@ -106,7 +114,7 @@ export namespace sanitize {
     max?: number;
     strict?: boolean;
 
-    constructor({def, min, max, strict}: __Number) {
+    constructor({ def, min, max, strict }: __Number) {
       this.def = def;
       this.min = min;
       this.max = max;
@@ -114,7 +122,7 @@ export namespace sanitize {
     }
   }
 
-  export function Number({def, min, max, strict}: __Number) {
+  export function Number({ def, min, max, strict }: __Number) {
     return new _Number({ def, min, max, strict });
   }
 
@@ -137,7 +145,7 @@ export namespace sanitize {
     maxLength?: number;
     strict?: boolean;
 
-    constructor({def, rules, minLength, maxLength, strict}: __String) {
+    constructor({ def, rules, minLength, maxLength, strict }: __String) {
       this.def = def;
       this.rules = rules;
       this.minLength = minLength;
@@ -146,41 +154,50 @@ export namespace sanitize {
     }
   }
 
-  export function String({def, rules, minLength, maxLength, strict}: __String) {
+  export function String({ def, rules, minLength, maxLength, strict }: __String) {
     return new _String({ def, rules, minLength, maxLength, strict });
+  }
+
+  // tslint:disable-next-line
+  export interface __Object {
+    def?: Object;
   }
 
   // tslint:disable-next-line
   export class _Object {
     properties: { [key: string]: SanitizePropertyTypes } | undefined;
+    def?: Object;
 
-    constructor(obj?: { [key: string]: SanitizePropertyTypes }) {
+    constructor(obj?: { [key: string]: SanitizePropertyTypes }, opts?: __Object | undefined) {
+      opts = opts || {};
       this.properties = obj;
+      this.def = opts.def;
     }
   }
 
   // tslint:disable-next-line
-  export function Object(obj: { [key: string]: SanitizePropertyTypes }) {
-    return new _Object(obj);
+  export function Object(obj: { [key: string]: SanitizePropertyTypes }, opts?: __Object) {
+    return new _Object(obj, opts);
   }
 
   // tslint:disable-next-line
   export class _Array {
-    items: [SanitizePropertyTypes];
+    items: SanitizePropertyTypes[];
 
-    constructor(items: [SanitizePropertyTypes]) {
+    constructor(items: SanitizePropertyTypes[]) {
       this.items = items;
     }
   }
 
-  export function Array(items: [SanitizePropertyTypes]) {
+  export function Array(items: SanitizePropertyTypes[]) {
     return new _Array(items);
   }
 
   export type SanitizePropertyTypes =
     typeof global.String | string | _String |
     typeof global.Number | number | _Number |
-    typeof Boolean | typeof Date | _Object | _Array | _Any |
+    typeof Boolean | boolean | 
+    typeof Date | _Object | _Array | _Any |
     _ObjectId | _Cider | _NumberOrQuery;
 
   // tslint:disable-next-line cyclomatic-complexity
@@ -210,6 +227,7 @@ export namespace sanitize {
     } else if (value instanceof _Object) {
       property.type = 'object';
       property.properties = sanitizeAsObject(value.properties);
+      _.defaults(property, value);
     } else if (value instanceof _Array) {
       property.type = 'array';
       property.items = sanitizeAsArray(value.items);
@@ -226,7 +244,9 @@ export namespace sanitize {
   // schema-inspector 문법은 array에 들어올 수 있는 타입을 한 개 이상 받을 수 있게 되어있지만
   // 여기서는 가장 첫번째 한 개만 처리하고 있다. 인터페이스 구조상 여러 개도 처리할 수 있지만 단순히 안 한 것 뿐이다.
   // @kson //2016-08-04
-  function sanitizeAsArray([item]) {
+  function sanitizeAsArray(items: SanitizePropertyTypes[]) {
+    if (!items) return;
+    const item = items[0];
     const property: SchemaInspectorProperty = { optional: true };
     return parseSanitization(property, item);
   }
@@ -298,11 +318,12 @@ export namespace sanitize {
     return parseSanitization({}, target as SanitizePropertyTypes);
   }
 
-  export const query = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'query');
   export const body = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'body');
   export const params = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'params');
-  export const session = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'session');
+  export const query = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'query');
   export const result = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'result');
+  export const session = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'session');
+  export const user = makeDecorator<SanitizePropertyTypes>(sanitize, 'sanitization', 'user');
 }
 
 export namespace validate {
@@ -318,6 +339,9 @@ export namespace validate {
   // tslint:disable-next-line class-name
   export interface _Any { $validate: Symbol; };
   export const Any: _Any = { $validate: Symbol() };
+  // tslint:disable-next-line class-name
+  export interface _Html { $validate: Symbol; };
+  export const Html: _Html = { $validate: Symbol() };
 
   // tslint:disable-next-line class-name
   export interface __Number {
@@ -338,7 +362,7 @@ export namespace validate {
     eq?: number | number[];
     ne?: number;
 
-    constructor({lt, lte, gt, gte, eq, ne}: __Number) {
+    constructor({ lt, lte, gt, gte, eq, ne }: __Number) {
       this.lt = lt;
       this.lte = lte;
       this.gt = gt;
@@ -348,7 +372,7 @@ export namespace validate {
     }
   }
 
-  export function Number({lt, lte, gt, gte, eq, ne}: __Number) {
+  export function Number({ lt, lte, gt, gte, eq, ne }: __Number) {
     return new _Number({ lt, lte, gt, gte, eq, ne });
   }
 
@@ -378,7 +402,7 @@ export namespace validate {
     }
   }
 
-  export function String({minLength, maxLength, exactLength, eq, ne}: __String) {
+  export function String({ minLength, maxLength, exactLength, eq, ne }: __String) {
     return new _String({ minLength, maxLength, exactLength, eq, ne });
   }
 
@@ -396,23 +420,37 @@ export namespace validate {
   }
 
   // tslint:disable-next-line class-name
+  export interface __Array {
+    minLength?: number;
+    maxLength?: number;
+    exactLength?: number;
+  }
+
+  // tslint:disable-next-line class-name
   export class _Array {
     items: [ValidatePropertyTypes] | undefined;
+    minLength?: number;
+    maxLength?: number;
+    exactLength?: number;
 
-    constructor(items: [ValidatePropertyTypes] | undefined) {
+    constructor(items: [ValidatePropertyTypes] | undefined, opts: __Array | undefined) {
+      opts = opts || {};
       this.items = items;
+      this.minLength = opts.minLength;
+      this.maxLength = opts.maxLength;
+      this.exactLength = opts.exactLength;
     }
   }
 
-  export function Array(items?: [ValidatePropertyTypes]) {
-    return new _Array(items);
+  export function Array(items?: [ValidatePropertyTypes], opts?: __Array) {
+    return new _Array(items, opts);
   }
 
   export type ValidatePropertyTypes =
     typeof global.String | string | _String |
     typeof global.Number | number | _Number |
     typeof Boolean | typeof Date | _Object | _Array | _Any |
-    _ObjectId | _Cider | _NumberOrQuery;
+    _ObjectId | _Cider | _NumberOrQuery | _Html;
 
   // tslint:disable-next-line cyclomatic-complexity
   function parseValidation(property: SchemaInspectorProperty, value: ValidatePropertyTypes) {
@@ -435,7 +473,7 @@ export namespace validate {
       property.properties = validateAsObject(value.properties);
     } else if (value instanceof _Array) {
       property.type = 'array';
-      property.items = validateAsArray(value.items);
+      _.defaults(property, validateAsArrayWithOptions(value));
     } else if (value === Any) {
       property.type = 'any';
     } else if (value === ObjectId) {
@@ -444,6 +482,8 @@ export namespace validate {
       property.type = '$cider';
     } else if (value === NumberOrQuery) {
       property.type = '$numberOrQuery';
+    } else if (value === Html) {
+      property.type = '$html';
     }
     return _.omitBy(property, _.isUndefined);
   }
@@ -451,14 +491,29 @@ export namespace validate {
   // schema-inspector 문법은 array에 들어올 수 있는 타입을 한 개 이상 받을 수 있게 되어있지만
   // 여기서는 가장 첫번째 한 개만 처리하고 있다. 인터페이스 구조상 여러 개도 처리할 수 있지만 단순히 안 한 것 뿐이다.
   // @kson //2016-08-04
-  function validateAsArray(items?: [ValidatePropertyTypes]) {
+  function validateAsArray(items?: ValidatePropertyTypes[]) {
     if (!items) return;
-
     const item = items[0];
     const property: SchemaInspectorProperty = { optional: false };
     return parseValidation(property, item);
   }
 
+  // v.Array로 선언되어 Option이 있는 경우 이 함수가 사용된다.
+  function validateAsArrayWithOptions(obj?: { items?: ValidatePropertyTypes[], opts?: __Array }) {
+    obj = obj || {};
+    if (!obj.items) return;
+    const item = obj.items as any;
+    const property: SchemaInspectorProperty = { optional: false };
+
+    _.each(obj, (value, key: string) => {
+      if (key === 'items') {
+        property.items = validateAsArray(item);
+      } else {
+        property[key] = value;
+      }
+    });
+    return parseValidation(property, item);
+  }
   // validation의 optional의 기본값은 false
   // https://github.com/Atinux/schema-inspector#v_optional
   // 헷갈리니까 생략하면 기본값, !는 required, ?는 optional로 양쪽에서 동일한 규칙을 쓰도록 한다
@@ -511,6 +566,7 @@ export namespace validate {
     { [key: string]: ValidatePropertyTypes } |
     [ValidatePropertyTypes]): any {
     if (global.Array.isArray(target)) {
+      // 여기에서 체크된 Array는 option이 없는 경우이다.
       return {
         items: validateAsArray(target),
         type: 'array'
@@ -526,11 +582,12 @@ export namespace validate {
     return parseValidation({}, target as ValidatePropertyTypes);
   }
 
-  export const query = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'query');
   export const body = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'body');
   export const params = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'params');
-  export const session = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'session');
+  export const query = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'query');
   export const result = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'result');
+  export const session = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'session');
+  export const user = makeDecorator<ValidatePropertyTypes>(validate, 'validation', 'user');
 }
 
 // Login ensure 레벨을 지정
@@ -587,7 +644,6 @@ export function auth(level: number) {
 }
 
 // - EndpointOptions#level, EndpointOptions#admin 속성의 Syntactic Sugar 이다
-//
 // [EXAMPLE]
 // @island.endpoint('GET /v2/a', {})
 // @island.admin
@@ -601,6 +657,23 @@ export function admin(target, key, desc) {
       _.merge(e.options, options);
     });
   }
+}
+
+// - 예외적인 케이스로 인해 특정 endpoint의 호출을 제어하고자 할 때 사용 한다
+// - 2017.07.21
+// - nosession, devonly도 점차적으로 extra 데코레이터를 쓰도록 가이드해야 한다
+// [EXAMPLE] admin API 이외에 내부망의 전용 gateway를 통해서만 통신해야만 하는 endpoint의 경우
+// @island.auth(0)
+// @island.extra({internal: true})
+// @island.endpoint('GET /v2/c', {})
+export function extra(extra: { [key: string]: any }) {
+  return (target, key, desc: PropertyDescriptor) => {
+    const options = desc.value.options = (desc.value.options || {}) as EndpointOptions;
+    options.extra = extra || {};
+    if (desc.value.endpoints) {
+      desc.value.endpoints.forEach(e => _.merge(e.options, options));
+    }
+  };
 }
 
 export function devonly(target, key, desc) {
@@ -622,7 +695,7 @@ function pushSafe(object, arrayName, element) {
   array.push(element);
 }
 
-// endpoint에 quota를 설정한다.
+// endpoint에 userQuota를 설정한다.
 //
 // [EXAMPLE]
 // @island.quota(1, 2)
@@ -638,6 +711,22 @@ export function quota(limit: number, banSecs: number) {
     }
   };
 }
+// endpoint에 serviceGroupQuota를 설정한다.
+//
+// [EXAMPLE]
+// @island.groupServiceQuota([group1, gropu2])
+// @island.endpoint('...')
+export function groupServiceQuota(group: string[]) {
+  return (target, key, desc: PropertyDescriptor) => {
+    const options = desc.value.options = (desc.value.options || {}) as EndpointOptions;
+    options.serviceQuota = options.serviceQuota || {};
+    options.serviceQuota.group = group;
+    if (desc.value.endpoints) {
+      desc.value.endpoints.forEach(e => _.merge(e.options, options));
+    }
+  };
+}
+//
 // endpoint에 quota Group을 설정한다.
 //
 // [EXAMPLE]
@@ -653,7 +742,21 @@ export function groupQuota(group: string[]) {
     }
   };
 }
-
+// endpoint에 sessionGroup을 설정한다. sessionGroup이 설정된 endpoint는 해당 sessionGroup에 해당하는 session 정보만을 전달받게 된다.
+// 설정하지 않을 경우 environments.getEndpointSessionGroup()을 기본으로 참고한다.
+//
+// [EXAMPLE]
+// @island.sessionGroup(group)
+// @island.endpoint('...')
+export function sessionGroup(group: string) {
+  return (target, key, desc: PropertyDescriptor) => {
+    const options = desc.value.options = (desc.value.options || {}) as EndpointOptions;
+    options.sessionGroup = group;
+    if (desc.value.endpoints) {
+      desc.value.endpoints.forEach(e => _.merge(e.options, options));
+    }
+  };
+}
 interface Endpoint {
   name: string;
   options: EndpointOptions;
@@ -715,22 +818,46 @@ function makeEndpointDecorator(method?: string) {
   };
 }
 
-export function endpointController(registerer?: { registerEndpoint: (name: string, value: any) => Promise<any> }) {
+export function endpointController(registerer?: {
+  registerEndpoint: (name: string, value: any) => void,
+  saveEndpoint: () => Promise<any>
+}) {
   return target => {
+    const _initialize = target.prototype.initialize;
     const _onInitialized = target.prototype.onInitialized;
+
+    // tslint:disable-next-line
+    target.prototype.initialize = async function () {
+      const _listen = this._server.listen;
+      if (_listen && !_listen.isRegister) {
+        // tslint:disable-next-line
+        this._server.listen = async function () {
+          if (registerer) {
+            await registerer.saveEndpoint();
+          }
+          return _listen.apply(this);
+        };
+        this._server.listen.isRegister = true;
+      }
+      return _initialize.apply(this);
+    };
     // tslint:disable-next-line
     target.prototype.onInitialized = async function () {
       await Promise.all(_.map(target._endpointMethods, (v: Endpoint) => {
         const developmentOnly = _.get(v, 'options.developmentOnly');
-        if (developmentOnly && process.env.NODE_ENV !== 'development') return Promise.resolve();
+        if (developmentOnly && !Environments.isDevMode()) return Promise.resolve();
 
         v.name = mangle(v.name);
-
+        if (Environments.getEndpointSessionGroup() && !v.options.sessionGroup)
+          v.options.sessionGroup = Environments.getEndpointSessionGroup();
         return this.server.register(v.name, v.handler.bind(this), 'endpoint').then(() => {
           return registerer && registerer.registerEndpoint(v.name, v.options || {}) || Promise.resolve();
+        }).catch(e => {
+          throw new FatalError(ISLAND.FATAL.F0028_CONSUL_ERROR, e.message);
         });
       }));
       return _onInitialized.apply(this);
     };
+
   };
 }

@@ -71,12 +71,14 @@ describe('validate', () => {
   it('should override value by key with ?', () => {
     const result = v.validate({
       'jti?': v.String({ exactLength: 32 }),
+      'session_types?': v.Array([String]),
       limit: v.Number({ lte: 100 }),
       offset: Number
     });
     expect(result).toEqual({
       properties: {
         jti: { type: 'string', exactLength: 32, optional: true },
+        session_types: { type: 'array', items: { type: 'string', optional: false }, optional: true },
         limit: { type: 'number', lte: 100, optional: false },
         offset: { type: 'number', optional: false }
       },
@@ -229,6 +231,56 @@ describe('validate', () => {
         }
       },
       type: 'object'
+    });
+  });
+
+  it('should support array options - minLength', () => {
+    const result = v.validate(v.Array([Number], {minLength: 5 }));
+    expect(result).toEqual({
+      type: 'array',
+      minLength: 5,
+      optional: false,
+      items: {type : 'number',
+              optional: false
+             }
+    });
+  });
+
+  it('should support array options - maxLength', () => {
+    const result = v.validate(v.Array([Number], {maxLength: 10 }));
+    expect(result).toEqual({
+      type: 'array',
+      maxLength: 10,
+      optional: false,
+      items: {type : 'number',
+              optional: false
+             }
+    });
+  });
+
+  it('should support array options - exactLength', () => {
+    const result = v.validate(v.Array([Number], {exactLength: 10 }));
+    expect(result).toEqual({
+      type: 'array',
+      exactLength: 10,
+      optional: false,
+      items: {type : 'number',
+              optional: false
+             }
+    });
+  });
+
+  it('should support array options', () => {
+    const result = v.validate(v.Array([Number], {minLength: 5 , maxLength: 10, exactLength: 15  }));
+    expect(result).toEqual({
+      type: 'array',
+      minLength: 5,
+      maxLength: 10,
+      exactLength: 15,
+      optional: false,
+      items: {type : 'number',
+              optional: false
+             }
     });
   });
 });
@@ -386,6 +438,17 @@ describe('sanitize', () => {
       },
       type: 'object'
     });
+  });
+
+  it('should support default value of object', () => {
+    const result = island.sanitize.sanitize({
+      a: s.Object({ b: Number }, { def: { b: 1 } }),
+      c: s.Object({
+        d: s.Object({ e: String })
+      }, { def: { d: { e: 'string' } } })
+    });
+    expect(result.properties.a.def).toEqual({ b: 1 });
+    expect(result.properties.c.def).toEqual({ d: { e: 'string' } });
   });
 });
 

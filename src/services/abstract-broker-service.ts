@@ -17,7 +17,7 @@ export default class AbstractBrokerService {
     this.msgpack = MessagePack.getInst();
   }
 
-  public initialize() {
+  public initialize(): Promise<void | never> {
     return Promise.reject(new FatalError(ISLAND.FATAL.F0011_NOT_INITIALIZED_EXCEPTION, 'Not initialized exception'));
   }
 
@@ -61,7 +61,7 @@ export default class AbstractBrokerService {
           await handler(msg);
           channel.ack(msg);
         } catch (error) {
-          if (error.type && parseInt(error.type, 10) === 503) {
+          if (error.statusCode && parseInt(error.statusCode, 10) === 503) {
             setTimeout(() => {
               channel.nack(msg);
             }, 1000);

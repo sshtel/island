@@ -1,14 +1,22 @@
+import * as _ from 'lodash';
+import { Environments } from '../utils/environments';
 import { ISLAND, LogicError } from '../utils/error';
 import { logger } from '../utils/logger';
 import MessagePack from '../utils/msgpack';
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
-const SERIALIZE_FORMAT_PUSH = process.env.SERIALIZE_FORMAT_PUSH;
+const SERIALIZE_FORMAT_PUSH = Environments.getSerializeFormatPush();
+export type BroadcastTarget = 'all' | 'pc' | 'mobile';
+export const BroadcastTargets = ['all', 'pc', 'mobile'];
 
 export default class PushService {
   // Exchange to broadcast to the entire users.
   public static broadcastExchange = {
-    name: 'PUSH_FANOUT_EXCHANGE',
+    name: {
+      all: 'PUSH_FANOUT_EXCHANGE',
+      pc: 'PUSH_PC_FANOUT_EXCHANGE',
+      mobile: 'PUSH_MOBILE_FANOUT_EXCHANGE'
+    },
     options: {
       durable: true
     },
@@ -30,10 +38,10 @@ export default class PushService {
       let buf;
       switch (SERIALIZE_FORMAT_PUSH) {
         case 'json':
-          buf = new Buffer(JSON.stringify(obj));
+          buf = Buffer.concat([new Buffer('JSON'), new Buffer(JSON.stringify(obj))]);
           break;
         default:
-          buf = PushService.msgpack.encode(obj);
+          buf = Buffer.concat([new Buffer('MSGP'), PushService.msgpack.encode(obj)]);
           break;
       }
       return buf;
@@ -48,13 +56,34 @@ export default class PushService {
 
   public static decode(buf) {
     let obj;
-    switch (SERIALIZE_FORMAT_PUSH) {
-      case 'json':
-        obj = JSON.parse(buf.toString());
+    let magic;
+    try {
+      magic = buf.readUInt32LE(0, 4);
+    } catch (e) {
+      // FIXME: backward compatibility
+      // we can just throw in here after all services changed.
+      magic = 0;
+    }
+    switch (magic) {
+      // JSON
+      case 0x4E4F534A:
+        obj = JSON.parse(buf.slice(4).toString());
+        break;
+      // MSGP
+      case 0x5047534D:
+        obj = PushService.msgpack.decode(buf.slice(4));
         break;
       default:
-        obj = PushService.msgpack.decode(buf);
-        break;
+        // FIXME: backward compatibility
+        // we can just throw in here after all services changed.
+        switch (SERIALIZE_FORMAT_PUSH) {
+          case 'json':
+            obj = JSON.parse(buf.toString());
+            break;
+          default:
+            obj = PushService.msgpack.decode(buf);
+            break;
+        }
     }
     return obj;
   }
@@ -80,11 +109,16 @@ export default class PushService {
     this.channelPool = channelPool;
 
     await this.channelPool.usingChannel(async channel => {
-      const globalFanoutX = PushService.broadcastExchange;
       const playerPushX = PushService.playerPushExchange;
-      await channel.assertExchange(globalFanoutX.name, globalFanoutX.type, globalFanoutX.options);
+      const broadcastExchange = PushService.broadcastExchange;
+      _.forEach(broadcastExchange.name, async name => {
+        await channel.assertExchange(name,
+          broadcastExchange.type, PushService.broadcastExchange.options);
+      });
       await channel.assertExchange(playerPushX.name, playerPushX.type, playerPushX.options);
       await channel.assertQueue(PushService.autoDeleteTriggerQueue.name, PushService.autoDeleteTriggerQueue.options);
+      await channel.bindExchange(PushService.broadcastExchange.name.pc, PushService.broadcastExchange.name.all, '');
+      await channel.bindExchange(PushService.broadcastExchange.name.mobile, PushService.broadcastExchange.name.all, '');
     });
   }
 
@@ -185,7 +219,8 @@ export default class PushService {
    */
   async broadcast(msg: any, options?: any): Promise<any> {
     return this.channelPool.usingChannel(async channel => {
-      const fanout = PushService.broadcastExchange.name;
+      const target: BroadcastTarget = options && options.broadcastTarget || 'all';
+      const fanout = PushService.broadcastExchange.name[target];
       return channel.publish(fanout, '', PushService.encode(msg), options);
     });
   }

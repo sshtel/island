@@ -27,7 +27,10 @@ const translators = {
     schema.pattern = /^[a-f\d]{24}$/i;
   },
   array: schema => translateSchemaType(schema.items),
-  object: schema => _.forEach(schema.properties, v => translateSchemaType(v))
+  object: schema => _.forEach(schema.properties, v => translateSchemaType(v)),
+  $html: schema => {
+    schema.type = 'string';
+  }
 };
 
 export default function translateSchemaType(schema) {

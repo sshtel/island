@@ -5,6 +5,7 @@ import ListenableAdapter, { IListenableAdapter } from './adapters/listenable-ada
 import { bindImpliedServices } from './utils/di-bind';
 import { FatalError, ISLAND } from './utils/error';
 import { logger } from './utils/logger';
+import { collector, STATUS_EXPORT, STATUS_EXPORT_TIME_MS } from './utils/status-collector';
 
 import { IntervalHelper } from './utils/interval-helper';
 
@@ -28,7 +29,7 @@ export default class Islet {
    * @param {Microservice} Class
    * @static
    */
-  public static run(subClass: typeof Islet) {
+  public static run(subClass: typeof Islet, opts?: { SIGTERM?: boolean, SIGUSR2?: boolean }) {
     if (this.islet) return;
 
     // Create such a micro-service instance.
@@ -36,7 +37,7 @@ export default class Islet {
     this.registerIslet(islet);
 
     islet.main();
-    return islet.initialize();
+    return islet.initialize(opts);
   }
 
   private static islet: Islet;
@@ -100,18 +101,24 @@ export default class Islet {
   /**
    * @returns {Promise<void>}
    */
-  private async initialize() {
+  private async initialize(opts: {SIGTERM?: boolean, SIGUSR2?: boolean} = { SIGTERM : true, SIGUSR2 : true }) {
     try {
       await this.onPrepare();
       await Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize()));
-      process.once('SIGTERM', this.destroy.bind(this));
+      if (opts.SIGTERM) process.once('SIGTERM', this.destroy.bind(this));
+      if (opts.SIGUSR2) process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
-      const adapters = _.values<IListenableAdapter>(this.adapters)
-                        .filter(adapter => adapter instanceof ListenableAdapter);
+      const adapters = _.values<IAbstractAdapter>(this.adapters)
+                        .filter(adapter => adapter instanceof ListenableAdapter) as IListenableAdapter[];
 
       await Promise.all(adapters.map(adapter => adapter.postInitialize()));
       await Promise.all(adapters.map(adapter => adapter.listen()));
+
+      if (STATUS_EXPORT) {
+        logger.notice('INSTANCE STATUS SAVE START');
+        IntervalHelper.setIslandInterval(collector.saveStatus.bind(collector), STATUS_EXPORT_TIME_MS);
+      }
 
       logger.info('started');
       await this.onStarted();
@@ -133,5 +140,13 @@ export default class Islet {
       await adapter.destroy();
     }));
     await this.onDestroy();
+  }
+
+  private async sigInfo() {
+    logger.info('Waiting for a check to process status');
+    await Promise.all(_.map(this.listenAdapters, async (adapter: IListenableAdapter, key) => {
+      logger.debug('sigInfo : ', key);
+      await adapter.sigInfo();
+    }));
   }
 }

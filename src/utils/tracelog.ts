@@ -1,5 +1,6 @@
 import * as Bluebird from 'bluebird';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
+import { Environments } from '../utils/environments';
 
 export interface LogSource {
   node: string;
@@ -17,13 +18,14 @@ const TRACE_QUEUE_NAME_OPTIONS: any = {
 export class TraceLog {
   static channelPool: AmqpChannelPoolService;
   static async initialize(): Promise<any> {
-    if (!process.env.ISLAND_TRACEMQ_HOST) return;
+    const url = Environments.getIslandTracemqHost();
+    if (!url) return;
     if (TraceLog.channelPool) return;
     TraceLog.channelPool = new AmqpChannelPoolService();
 
-    await TraceLog.channelPool.initialize({url: process.env.ISLAND_TRACEMQ_HOST});
+    await TraceLog.channelPool.initialize({ url });
     return await TraceLog.channelPool.usingChannel(channel => {
-      return channel.assertQueue(process.env.ISLAND_TRACEMQ_QUEUE || 'trace', TRACE_QUEUE_NAME_OPTIONS);
+      return channel.assertQueue(Environments.getIslandTracemqQueue(), TRACE_QUEUE_NAME_OPTIONS);
     });
   }
 
@@ -75,7 +77,7 @@ export class TraceLog {
     if (!TraceLog.channelPool) return Promise.resolve();
     return Promise.resolve(Bluebird.try(() => {
       const content = new Buffer(JSON.stringify(this.data), 'utf8');
-      const queueName = process.env.ISLAND_TRACEMQ_QUEUE || 'trace';
+      const queueName = Environments.getIslandTracemqQueue();
       return TraceLog.channelPool.usingChannel(channel => {
         return Promise.resolve(channel.sendToQueue(queueName, content));
       });

@@ -7,7 +7,7 @@ export interface SocketIOAdapterOptions {
   port: number;
 }
 
-export default class SocketIOAdapter extends ListenableAdapter<SocketIO.Server, SocketIOAdapterOptions> {
+export default class SocketIOAdapter extends ListenableAdapter<io.Server, SocketIOAdapterOptions> {
   /**
    * @returns {Promise<void>}
    * @override

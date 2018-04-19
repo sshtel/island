@@ -8,6 +8,7 @@ export interface IAbstractAdapter {
   adaptee: any;
   initialize(): any | Promise<any>;
   destroy(): any | Promise<any>;
+  sigInfo(): any | Promise<void>;
 }
 
 /**
@@ -32,6 +33,10 @@ export default class AbstractAdapter<T, U> implements IAbstractAdapter {
   }
 
   public destroy(): any | Promise<any> {
+    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
+  }
+
+  public async sigInfo(): Promise<void> {
     throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
   }
 }
