@@ -63,8 +63,8 @@ export class IslandEnvironments {
   @env({ required: false, legacyKeys: ['ENDPOINT_SESSION_GROUP'] })
   public ISLAND_ENDPOINT_SESSION_GROUP: string;
 
-  @env({ default: '' })
-  public ISLAND_IGNORE_EVENT_LOG: string;
+  // @env({ default: '' })
+  // public ISLAND_IGNORE_EVENT_LOG: string;
 
   @env({ default: 'short', eq: ['short', 'long', 'json'] })
   public ISLAND_LOGGER_TYPE: string;
@@ -185,7 +185,7 @@ export class IslandEnvironments {
   }
 
   public getIgnoreEventLogRegexp(): string {
-    return (this.ISLAND_IGNORE_EVENT_LOG).split(',').join('|');
+    return (process.env.ISLAND_IGNORE_EVENT_LOG || '').split(',').join('|');
   }
 
   public getEndpointSessionGroup(): string | undefined {
