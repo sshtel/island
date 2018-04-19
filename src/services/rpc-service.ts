@@ -297,7 +297,7 @@ export default class RPCService {
       delete this.timedOut[this.timedOutOrdered.shift()!];
     }
     const err = new FatalError(ISLAND.FATAL.F0023_RPC_TIMEOUT,
-                               `RPC(${name}) does not return in ${RPC_WAIT_TIMEOUT_MS} ms`);
+                               `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
     err.statusCode = 504;
     throw err;
   }
@@ -375,7 +375,7 @@ export default class RPCService {
     };
     return {
       correlationId,
-      expiration: RPC_WAIT_TIMEOUT_MS,
+      expiration: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS,
       headers,
       replyTo: this.responseQueueName,
       timestamp: +(new Date())
