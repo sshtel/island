@@ -68,22 +68,24 @@ function makeDecorator(optionalSchema?: any) {
 }
 
 function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
-  let defaultValue: any = object[itemKey];
+  let defaultValue: any = undefined;
 
-  if (defaultValue === undefined) {
-    const keys = (schema.legacyKeys && schema.legacyKeys.length) ? [itemKey].concat(schema.legacyKeys) : [itemKey];
+  const keys = (schema.legacyKeys && schema.legacyKeys.length) ? [itemKey].concat(schema.legacyKeys) : [itemKey];
 
-    _.some(keys, (envKey) => {
-      if ([undefined, ''].indexOf(process.env[envKey]) < 0) {
-        defaultValue = process.env[envKey];
-        return true;
-      }
-      return false;
-    });
-  }
+  _.some(keys, (envKey) => {
+    if ([undefined, ''].indexOf(process.env[envKey]) < 0) {
+      defaultValue = process.env[envKey];
+      return true;
+    }
+    return false;
+  });
 
   if (defaultValue === undefined) {
     defaultValue = schema.default;
+  }
+
+  if (defaultValue === undefined) {
+    defaultValue = object[itemKey];
   }
 
   if (defaultValue === undefined && schema.optional === false) {
@@ -111,7 +113,7 @@ function loadAndSanitize(object: any): void {
 }
 
 // Do not execute before sanitize
-function disableWritable(object: any): void {
+function setReadonly(object: any): void {
   const metadata = defaultSchemaStorage.getSchemasForObject(object.constructor);
   _.forEach(metadata.schema.properties, (schema, key) => {
     if (!schema.writable) {
@@ -137,6 +139,10 @@ export function env(optionalSchema?: any) {
 
 export function LoadEnv(object: any): void {
   loadAndSanitize(object);
-  disableWritable(object);
+  return;
+}
+
+export function SetReadonly(object: any): void {
+  setReadonly(object);
   return;
 }

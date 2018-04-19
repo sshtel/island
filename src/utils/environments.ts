@@ -7,7 +7,7 @@ export class IslandEnvironments {
   public ISLAND_SERVICE_NAME!: string;
 
   @env({ default: 'no-host-name', legacyKeys: ['HOSTNAME'] })
-  public ISLAND_HOST_NAME: string;
+  public ISLAND_HOST_NAME: string = 'no-host-name';
 
   @env({ default: false, legacyKeys: ['USE_DEV_MODE'] })
   public ISLAND_USE_DEV_MODE: boolean;
@@ -193,6 +193,10 @@ export class IslandEnvironments {
   }
 
   constructor() {
+    LoadEnv(this);
+  }
+
+  public refreshEnvForDebug() {
     LoadEnv(this);
   }
 }
