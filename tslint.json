@@ -14,7 +14,7 @@
             true,
             {"order": "statics-first"}
         ],
-        "max-file-line-count": [false, 600], // FIXME: This option is disabled to avoid big refactoring chore
+        "max-file-line-count": [true, 950], // FIXME: This option value is increased to avoid big refactoring chore
         "max-line-length": [true, 120],
         "no-angle-bracket-type-assertion": true,
         // "no-any": true,
