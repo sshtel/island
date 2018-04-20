@@ -3,62 +3,67 @@ import { env, LoadEnv } from '../utils/env-loader';
 export type LoggerLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'crit';
 
 export class IslandEnvironments {
-  @env({ default: 'no-service-name', legacyKeys: ['SERVICE_NAME'] })
-  public ISLAND_SERVICE_NAME!: string;
+  private static _instance: IslandEnvironments;
 
-  @env({ default: 'no-host-name', legacyKeys: ['HOSTNAME'] })
+  @env({ legacyKeys: ['SERVICE_NAME'] })
+  public ISLAND_SERVICE_NAME: string = 'no-service-name';
+
+  @env({ legacyKeys: ['HOSTNAME'] })
   public ISLAND_HOST_NAME: string = 'no-host-name';
 
-  @env({ default: false, legacyKeys: ['USE_DEV_MODE'] })
-  public ISLAND_USE_DEV_MODE: boolean;
-
-  @env({ default: 100, legacyKeys: ['EVENT_PREFETCH'] })
-  public ISLAND_EVENT_PREFETCH: number;
-
-  @env({ default: 100, legacyKeys: ['RPC_PREFETCH'] })
-  public ISLAND_RPC_PREFETCH: number;
+  @env({ legacyKeys: ['USE_DEV_MODE'] })
+  public ISLAND_USE_DEV_MODE: boolean = false;
 
   @env({ required: false, legacyKeys: ['SERIALIZE_FORMAT_PUSH'] })
   public ISLAND_SERIALIZE_FORMAT_PUSH: string;
 
-  @env({ default: 25000 })
-  public ISLAND_RPC_EXEC_TIMEOUT_MS: number;
+  @env({ legacyKeys: ['EVENT_PREFETCH'] })
+  public ISLAND_EVENT_PREFETCH: number = 100;
 
-  @env({ default: 60000 })
-  public ISLAND_RPC_WAIT_TIMEOUT_MS: number;
+  @env({ legacyKeys: ['RPC_PREFETCH'] })
+  public ISLAND_RPC_PREFETCH: number = 100;
 
-  @env({ default: 60000 })
-  public ISLAND_SERVICE_LOAD_TIME_MS: number;
+  @env()
+  public ISLAND_RPC_EXEC_TIMEOUT_MS: number = 25000;
 
-  @env({ default: 'info', eq: ['debug', 'info', 'notice', 'warning', 'error', 'crit'] })
-  public ISLAND_LOGGER_LEVEL: string;
+  @env()
+  public ISLAND_RPC_WAIT_TIMEOUT_MS: number = 60000;
 
-  @env({ default: false })
-  public ISLAND_RPC_RES_NOACK: boolean;
+  @env()
+  public ISLAND_SERVICE_LOAD_TIME_MS: number = 60000;
 
-  @env({ default: false, legacyKeys: ['NO_REVIVER'] })
-  public ISLAND_NO_REVIVER: boolean;
+  @env({ eq: ['debug', 'info', 'notice', 'warning', 'error', 'crit'] })
+  public ISLAND_LOGGER_LEVEL: string = 'info';
 
-  @env({ default: false, legacyKeys: ['STATUS_EXPORT'] })
-  public ISLAND_STATUS_EXPORT: boolean;
+  @env({ eq: ['short', 'long', 'json'] })
+  public ISLAND_LOGGER_TYPE: string = 'short';
 
-  @env({ default: 10 * 1000, legacyKeys: ['STATUS_EXPORT_TIME_MS'] })
-  public ISLAND_STATUS_EXPORT_TIME_MS: number;
+  @env()
+  public ISLAND_RPC_RES_NOACK: boolean = false;
+
+  @env({ legacyKeys: ['NO_REVIVER'] })
+  public ISLAND_NO_REVIVER: boolean = false;
+
+  @env({ legacyKeys: ['STATUS_EXPORT'] })
+  public ISLAND_STATUS_EXPORT: boolean = false;
+
+  @env({ legacyKeys: ['STATUS_EXPORT_TIME_MS'] })
+  public ISLAND_STATUS_EXPORT_TIME_MS: number = 10 * 1000;
 
   @env({ required: false, legacyKeys: ['STATUS_FILE_NAME'] })
   public ISLAND_STATUS_FILE_NAME: string;
 
-  @env({ default: 'FILE', legacyKeys: ['STATUS_EXPORT_TYPE'] })
-  public ISLAND_STATUS_EXPORT_TYPE: string;
+  @env({ legacyKeys: ['STATUS_EXPORT_TYPE'] })
+  public ISLAND_STATUS_EXPORT_TYPE: string = 'FILE';
 
   @env({ required: false })
   public ISLAND_TRACEMQ_HOST: string;
 
-  @env({ default: 'trace' })
-  public ISLAND_TRACEMQ_QUEUE: string;
+  @env()
+  public ISLAND_TRACEMQ_QUEUE: string = 'trace';
 
-  @env({ default: false })
-  public ISLAND_TRACE_HEADER_LOG: boolean;
+  @env()
+  public ISLAND_TRACE_HEADER_LOG: boolean = false;
 
   @env({ required: false, legacyKeys: ['ENDPOINT_SESSION_GROUP'] })
   public ISLAND_ENDPOINT_SESSION_GROUP: string;
@@ -66,14 +71,11 @@ export class IslandEnvironments {
   // @env({ default: '' })
   // public ISLAND_IGNORE_EVENT_LOG: string;
 
-  @env({ default: 'short', eq: ['short', 'long', 'json'] })
-  public ISLAND_LOGGER_TYPE: string;
+  @env({ legacyKeys: ['CONSUL_HOST'] })
+  public ISLAND_CONSUL_HOST: string = 'consul';
 
-  @env({ default: 'consul', legacyKeys: ['CONSUL_HOST'] })
-  public ISLAND_CONSUL_HOST: string;
-
-  @env({ default: '8500', legacyKeys: ['CONSUL_PORT'] })
-  public ISLAND_CONSUL_PORT: string; // Why String???
+  @env({ legacyKeys: ['CONSUL_PORT'] })
+  public ISLAND_CONSUL_PORT: string = '8500'; // Why String???
 
   @env({ required: false, legacyKeys: ['CONSUL_NAMESPACE'] })
   public ISLAND_CONSUL_NAMESPACE: string;
@@ -81,8 +83,8 @@ export class IslandEnvironments {
   @env({ required: false, legacyKeys: ['CONSUL_TOKEN'] })
   public ISLAND_CONSUL_TOKEN: string;
 
-  @env({ default: 'amqp://rabbitmq:5672', legacyKeys: ['RABBITMQ_HOST'] })
-  public ISLAND_RABBITMQ_HOST: string;
+  @env({ legacyKeys: ['RABBITMQ_HOST'] })
+  public ISLAND_RABBITMQ_HOST: string = 'amqp://rabbitmq:5672';
 
   @env({ required: false, legacyKeys: ['RABBITMQ_PUSH_HOST'] })
   public ISLAND_RABBITMQ_PUSH_HOST: string;
@@ -93,20 +95,20 @@ export class IslandEnvironments {
   @env({ required: false, legacyKeys: ['RABBITMQ_EVENT_HOST'] })
   public ISLAND_RABBITMQ_EVENT_HOST: string;
 
-  @env({ default: 100, legacyKeys: ['RABBITMQ_POOLSIZE'] })
-  public ISLAND_RABBITMQ_POOLSIZE: number;
+  @env({ legacyKeys: ['RABBITMQ_POOLSIZE'] })
+  public ISLAND_RABBITMQ_POOLSIZE: number = 100;
 
   @env({ required: false, legacyKeys: ['REDIS_AUTH'] })
   public ISLAND_REDIS_AUTH: string;
 
-  @env({ default: 'redis', legacyKeys: ['REDIS_HOST'] })
-  public ISLAND_REDIS_HOST: string;
+  @env({ legacyKeys: ['REDIS_HOST'] })
+  public ISLAND_REDIS_HOST: string = 'redis';
 
-  @env({ default: 6379, legacyKeys: ['REDIS_PORT'] })
-  public ISLAND_REDIS_PORT: number;
+  @env({ legacyKeys: ['REDIS_PORT'] })
+  public ISLAND_REDIS_PORT: number = 6379;
 
-  @env({ default: 'mongodb://mongodb:27017', legacyKeys: ['MONGO_HOST'] })
-  public ISLAND_MONGO_HOST: string;
+  @env({ legacyKeys: ['MONGO_HOST'] })
+  public ISLAND_MONGO_HOST: string = 'mongodb://mongodb:27017';
 
   public isDevMode(): boolean {
     return this.ISLAND_USE_DEV_MODE;
@@ -193,12 +195,20 @@ export class IslandEnvironments {
   }
 
   constructor() {
+    if (IslandEnvironments._instance) {
+      throw new Error(`Error - use IslandEnvironments.getInstance()`);
+    }
     LoadEnv(this);
   }
 
   public refreshEnvForDebug() {
     LoadEnv(this);
   }
+
+  public static getInstance(): IslandEnvironments {
+    IslandEnvironments._instance = IslandEnvironments._instance || new IslandEnvironments();
+    return IslandEnvironments._instance;
+  }
 }
 
-export const Environments = new IslandEnvironments();
+export const Environments = IslandEnvironments.getInstance();
