@@ -21,13 +21,6 @@ import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
 export { IRpcResponse, RpcRequest, RpcResponse };
 
-const RPC_EXEC_TIMEOUT_MS = Environments.getIslandRpcExecTimeoutMs();
-const RPC_WAIT_TIMEOUT_MS = Environments.getIslandRpcWaitTimeoutMs();
-const SERVICE_LOAD_TIME_MS = Environments.getIslandServiceLoadTimeMs();
-const RPC_RES_NOACK = Environments.isIslandRpcResNoack();
-const RPC_QUEUE_EXPIRES_MS = RPC_WAIT_TIMEOUT_MS + SERVICE_LOAD_TIME_MS;
-const NO_REVIVER = Environments.isNoReviver();
-const USE_TRACE_HEADER_LOG = Environments.isUsingTraceHeaderLog();
 const RPC_QUEUE_DISTRIB_SIZE = 16;
 
 export type RpcType = 'rpc' | 'endpoint';
@@ -124,7 +117,7 @@ export default class RPCService {
   }
 
   public async initialize(channelPool: AmqpChannelPoolService, opts?: InitializeOptions): Promise<any> {
-    if (NO_REVIVER || opts && opts.noReviver) {
+    if (Environments.ISLAND_NO_REVIVER || opts && opts.noReviver) {
       RpcResponse.reviver = undefined;
     } else {
       RpcResponse.reviver = reviver;
@@ -141,7 +134,7 @@ export default class RPCService {
     this.channelPool = channelPool;
     await this.consumerChannelPool.usingChannel(
       channel => channel.assertQueue(this.responseQueueName, {
-        durable: false, exclusive: true, expires: RPC_QUEUE_EXPIRES_MS
+        durable: false, exclusive: true, expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS
       })
     );
 
@@ -249,7 +242,7 @@ export default class RPCService {
       if (opts && opts.withRawdata) return { body: res.body, raw: msg.content };
       return res.body;
     })
-      .timeout(RPC_WAIT_TIMEOUT_MS)
+      .timeout(Environments.ISLAND_RPC_WAIT_TIMEOUT_MS)
       .catch(Bluebird.TimeoutError, () => this.throwTimeout(name, option.correlationId!))
       .catch(err => {
         err.tattoo = option.headers.tattoo;
@@ -304,7 +297,7 @@ export default class RPCService {
       delete this.timedOut[this.timedOutOrdered.shift()!];
     }
     const err = new FatalError(ISLAND.FATAL.F0023_RPC_TIMEOUT,
-                               `RPC(${name}) does not return in ${RPC_WAIT_TIMEOUT_MS} ms`);
+                               `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
     err.statusCode = 504;
     throw err;
   }
@@ -345,7 +338,7 @@ export default class RPCService {
       }
       delete this.waitingResponse[correlationId];
       return waiting.resolve(msg);
-    }, RPC_RES_NOACK);
+    }, Environments.ISLAND_RPC_RES_NOACK);
   }
 
   private waitResponse(corrId: string, handleResponse: (msg: Message) => any) {
@@ -367,7 +360,7 @@ export default class RPCService {
     const type = ns.get('Type');
     const sessionType = ns.get('sessionType');
     let mqstack = ns.get('mqstack');
-    if (USE_TRACE_HEADER_LOG || mqstack) {
+    if (Environments.ISLAND_TRACE_HEADER_LOG || mqstack) {
       mqstack = mqstack || [];
       mqstack.push({ node: Environments.getHostName(), context, island: this.serviceName, type });
     }
@@ -382,7 +375,7 @@ export default class RPCService {
     };
     return {
       correlationId,
-      expiration: RPC_WAIT_TIMEOUT_MS,
+      expiration: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS,
       headers,
       replyTo: this.responseQueueName,
       timestamp: +(new Date())
@@ -424,7 +417,7 @@ export default class RPCService {
       if (options.headers && options.headers.extra) {
         options.headers.extra.mqstack = mqstack;
       }
-      if (USE_TRACE_HEADER_LOG) {
+      if (Environments.ISLAND_TRACE_HEADER_LOG) {
         logger.debug(`TraceHeaderLog:\n${JSON.stringify(mqstack, null, 2)}`);
       }
     }
@@ -473,7 +466,7 @@ export default class RPCService {
   private async assertQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
       await Promise.all(_.map(queues, async (queue: string) => {
-        await channel.assertQueue(queue, { durable: false, expires: RPC_QUEUE_EXPIRES_MS });
+        await channel.assertQueue(queue, { durable: false, expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS });
       }));
     });
   }
@@ -519,7 +512,7 @@ export default class RPCService {
 
       const tattoo = headers && headers.tattoo;
       const extra = headers && headers.extra || {};
-      if (USE_TRACE_HEADER_LOG && !extra.mqstack) {
+      if (Environments.ISLAND_TRACE_HEADER_LOG && !extra.mqstack) {
         extra.mqstack = [];
       }
       return this.enterCLS(tattoo, rpcName, extra, async () => {
@@ -538,7 +531,7 @@ export default class RPCService {
             .then(res => this.reply(replyTo, res, options))
             .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId }))
             .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
-            .timeout(RPC_EXEC_TIMEOUT_MS);
+            .timeout(Environments.ISLAND_RPC_EXEC_TIMEOUT_MS);
         } catch (err) {
           await Bluebird.resolve(err)
             .then(err => this.earlyThrowWith503(rpcName, err, msg))
