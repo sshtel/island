@@ -19,6 +19,9 @@ import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
 import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
+import { Environments } from '../utils/environments';
+
+Environments.refreshEnvForDebug();
 
 // tslint:disable-next-line no-var-requires
 const stdMocks = require('std-mocks');
