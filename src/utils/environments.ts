@@ -3,6 +3,10 @@ import { env, LoadEnv } from '../utils/env-loader';
 export type LoggerLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'crit';
 
 export class IslandEnvironments {
+  public static getInstance(): IslandEnvironments {
+    IslandEnvironments._instance = IslandEnvironments._instance || new IslandEnvironments();
+    return IslandEnvironments._instance;
+  }
   private static _instance: IslandEnvironments;
 
   @env({ legacyKeys: ['SERVICE_NAME'] })
@@ -110,6 +114,13 @@ export class IslandEnvironments {
   @env({ legacyKeys: ['MONGO_HOST'] })
   public ISLAND_MONGO_HOST: string = 'mongodb://mongodb:27017';
 
+  constructor() {
+    if (IslandEnvironments._instance) {
+      throw new Error(`Error - use IslandEnvironments.getInstance()`);
+    }
+    LoadEnv(this);
+  }
+
   public isDevMode(): boolean {
     return this.ISLAND_USE_DEV_MODE;
   }
@@ -194,21 +205,10 @@ export class IslandEnvironments {
     return this.ISLAND_ENDPOINT_SESSION_GROUP;
   }
 
-  constructor() {
-    if (IslandEnvironments._instance) {
-      throw new Error(`Error - use IslandEnvironments.getInstance()`);
-    }
-    LoadEnv(this);
-  }
-
   public refreshEnvForDebug() {
     LoadEnv(this);
   }
 
-  public static getInstance(): IslandEnvironments {
-    IslandEnvironments._instance = IslandEnvironments._instance || new IslandEnvironments();
-    return IslandEnvironments._instance;
-  }
 }
 
 export const Environments = IslandEnvironments.getInstance();

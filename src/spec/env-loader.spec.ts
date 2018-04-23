@@ -19,7 +19,7 @@ describe('Environment Loader', () => {
       constructor() {
         LoadEnv(this);
       }
-    };
+    }
 
     const pe = new ProcessEnv();
     expect(pe.NUMBER_WITH_NO_DEFAULT).toBeUndefined();
@@ -43,7 +43,7 @@ describe('Environment Loader', () => {
       constructor() {
         LoadEnv(this);
       }
-    };
+    }
 
     const pe = new ProcessEnv();
     expect(pe.STRING_WITH_DEFAULT).toEqual('string');
@@ -74,7 +74,7 @@ describe('Environment Loader', () => {
       constructor() {
         LoadEnv(this);
       }
-    };
+    }
 
     const pe = new ProcessEnv();
     expect(pe.BOOLEAN_WITH_DEFAULT_TRUE).toEqual(true);

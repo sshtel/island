@@ -134,7 +134,9 @@ export default class RPCService {
     this.channelPool = channelPool;
     await this.consumerChannelPool.usingChannel(
       channel => channel.assertQueue(this.responseQueueName, {
-        durable: false, exclusive: true, expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS
+        durable: false,
+        exclusive: true,
+        expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS
       })
     );
 
@@ -466,7 +468,11 @@ export default class RPCService {
   private async assertQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
       await Promise.all(_.map(queues, async (queue: string) => {
-        await channel.assertQueue(queue, { durable: false, expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS });
+        await channel.assertQueue(queue,
+                                  { durable: false,
+                                    expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS +
+                                             Environments.ISLAND_SERVICE_LOAD_TIME_MS
+                                  });
       }));
     });
   }

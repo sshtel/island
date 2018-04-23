@@ -14,12 +14,12 @@ import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rpc-service';
+import { Environments } from '../utils/environments';
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
 import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
-import { Environments } from '../utils/environments';
 
 Environments.refreshEnvForDebug();
 

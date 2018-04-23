@@ -31,7 +31,7 @@ export class SchemaStorage {
   }
 
   public getSchemasForObject(targetConstructor: Function): any {
-    return this.schemaMetadata.find((metadata) => {
+    return this.schemaMetadata.find(metadata => {
       if (metadata.key === targetConstructor)
         return true;
       if (metadata.key instanceof Function &&
@@ -46,10 +46,10 @@ export class SchemaStorage {
 const defaultSchemaStorage = new SchemaStorage();
 
 function makeDecorator(optionalSchema?: any) {
-  return function (object: Object, propertyName: string) {
+  return (object: Object, propertyName: string) => {
     const metadata = Reflect.getMetadata('design:type', object, propertyName);
     // console.log(`${propertyName} props: ${Object.getOwnPropertyNames(metadata)}`);
-    
+
     let type = '';
     switch (metadata.name) {
       case 'String':
@@ -60,8 +60,8 @@ function makeDecorator(optionalSchema?: any) {
     }
 
     defaultSchemaStorage.addSchemaMetadata(object.constructor, {
-      type: type,
-      propertyName: propertyName,
+      type,
+      propertyName,
       opts: optionalSchema || {}
     });
   };
@@ -72,7 +72,7 @@ function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
 
   const keys = (schema.legacyKeys && schema.legacyKeys.length) ? [itemKey].concat(schema.legacyKeys) : [itemKey];
 
-  _.some(keys, (envKey) => {
+  _.some(keys, envKey => {
     if ([undefined, ''].indexOf(process.env[envKey]) < 0) {
       defaultValue = process.env[envKey];
       return true;
@@ -129,7 +129,7 @@ function setReadonly(object: any): void {
  * default: string - Set Default Value when object default value & process.env is undefined
  * required: boolean - default true, also supports optional.
  * legacyKeys: array of string - find process.env[some of legacyKeys] when process.env[key] is undefined
- * 
+ *
  * only supports 1 depth object.
  */
 // TODO : support TypeScript 2.7 definite property assignment assertion - reflection didn't support yet
