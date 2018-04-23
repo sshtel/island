@@ -7,19 +7,19 @@ process.env.STATUS_EXPORT = 'true';
 process.env.STATUS_EXPORT_TIME_MS = '3000';
 
 import * as Bluebird from 'bluebird';
+import { StatusExporter } from 'island-status-exporter';
 // import * as fs from 'fs';
 
 import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rpc-service';
+import { Environments } from '../utils/environments';
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
-import { StatusExporter } from 'island-status-exporter';
 import { collector } from '../utils/status-collector';
 import { TraceLog } from '../utils/tracelog';
-import { Environments } from '../utils/environments';
 
 Environments.refreshEnvForDebug();
 
@@ -602,7 +602,7 @@ describe('RPC-hook', () => {
   }));
 
   it('should save status file', spec(async () => {
-    StatusExporter.initialize({name: 'status_collect'})
+    StatusExporter.initialize({name: 'status_collect'});
     await collector.saveStatus();
   }));
 

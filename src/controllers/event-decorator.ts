@@ -25,7 +25,7 @@ export function eventController<T>(target: any) {
   target.prototype.onInitialized = async function () {
     const result = await _onInitialized.apply(this);
 
-    const constructor = target as {new (): AbstractController<T>;} &
+    const constructor = target as {new (): AbstractController<T>} &
       EventSubscriptionContainer<Event<any>, any> & PatternSubscriptionContainer;
 
     constructor._eventSubscriptions = DEFAULT_SUBSCRIPTIONS.concat(constructor._eventSubscriptions || []);

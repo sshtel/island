@@ -1,6 +1,3 @@
-import { IToken } from './restify-jwt-middleware';
-export { IToken }
-
 export interface ISession {
   sid: string;
   aid: string;
