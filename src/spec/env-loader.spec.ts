@@ -2,19 +2,21 @@ import { env, LoadEnv } from '../index';
 
 describe('Environment Loader', () => {
   it('should sanitize number types', done => {
+    process.env.NUMBER_WITH_DEFAULT_ENV = 10;
+    process.env.NUMBER_WITH_INVALID_ENV = 'OH MY GOD';
+    process.env.NUMBER_WITH_INVALID_ENV_WITH_DEFAULT = 'OH MY GOD';
+
     class ProcessEnv {
       @env({ required: false })
       public NUMBER_WITH_NO_DEFAULT: number;
-      @env({ default: 5 })
-      public NUMBER_WITH_DEFAULT: number;
-      @env({ default: '5' })
-      public NUMBER_WITH_WRONG_DEFAULT: number;
-      @env({ default: '5A' })
-      public NUMBER_WITH_WRONG_DEFAULT2: number;
-      @env({ default: '011' })
-      public NUMBER_DEFAULT_IGNORE_8: number;
-      @env({ default: '0x11', required: true })
-      public NUMBER_DEFAULT_IGNORE_16: number;
+      @env()
+      public NUMBER_WITH_DEFAULT: number = 5;
+      @env()
+      public NUMBER_WITH_DEFAULT_ENV: number = 5;
+      @env({ required: false })
+      public NUMBER_WITH_INVALID_ENV: number;
+      @env()
+      public NUMBER_WITH_INVALID_ENV_WITH_DEFAULT: number = 5;
 
       constructor() {
         LoadEnv(this);
@@ -24,21 +26,16 @@ describe('Environment Loader', () => {
     const pe = new ProcessEnv();
     expect(pe.NUMBER_WITH_NO_DEFAULT).toBeUndefined();
     expect(pe.NUMBER_WITH_DEFAULT).toEqual(5);
-    expect(pe.NUMBER_WITH_WRONG_DEFAULT).toEqual(5);
-    expect(pe.NUMBER_WITH_WRONG_DEFAULT2).toEqual(5);
-    expect(pe.NUMBER_DEFAULT_IGNORE_8).toEqual(11);
-    expect(pe.NUMBER_DEFAULT_IGNORE_16).toEqual(0);
+    expect(pe.NUMBER_WITH_DEFAULT_ENV).toEqual(10);
+    expect(pe.NUMBER_WITH_INVALID_ENV).toBeUndefined();
+    expect(pe.NUMBER_WITH_INVALID_ENV_WITH_DEFAULT).toEqual(5);
     done();
   });
 
   it('should sanitize string types', done => {
     class ProcessEnv {
-      @env({ default: 'string' })
-      public STRING_WITH_DEFAULT: string;
-      @env({ default: 5722 })
-      public STRING_WITH_WRONG_DEFAULT: string;
-      @env({ default: new Date('2018-07-22') })
-      public STRING_WITH_WRONG_DEFAULT2: string;
+      @env()
+      public STRING_WITH_DEFAULT: string = 'string';
 
       constructor() {
         LoadEnv(this);
@@ -47,29 +44,15 @@ describe('Environment Loader', () => {
 
     const pe = new ProcessEnv();
     expect(pe.STRING_WITH_DEFAULT).toEqual('string');
-    expect(pe.STRING_WITH_WRONG_DEFAULT).toEqual('5722');
-    expect(typeof pe.STRING_WITH_WRONG_DEFAULT2).toEqual('string');
     done();
   });
 
   it('should sanitize boolean types', done => {
     class ProcessEnv {
-      @env({ default: true })
-      public BOOLEAN_WITH_DEFAULT_TRUE: boolean;
-      @env({ default: false })
-      public BOOLEAN_WITH_DEFAULT_FALSE: boolean;
-      @env({ default: 'true' })
-      public BOOLEAN_WITH_DEFAULT_TRUE_STRING: boolean;
-      @env({ default: 'false' })
-      public BOOLEAN_WITH_DEFAULT_FALSE_STRING: boolean;
-      @env({ default: 'ture' })
-      public BOOLEAN_WITH_DEFAULT_WRONG_ANY_STRING: boolean;
-      @env({ default: 2 })
-      public BOOLEAN_WITH_DEFAULT_2: boolean;
-      @env({ default: 1 })
-      public BOOLEAN_WITH_DEFAULT_1: boolean;
-      @env({ default: 0 })
-      public BOOLEAN_WITH_DEFAULT_0: boolean;
+      @env()
+      public BOOLEAN_WITH_DEFAULT_TRUE: boolean = true;
+      @env()
+      public BOOLEAN_WITH_DEFAULT_FALSE: boolean = false;
 
       constructor() {
         LoadEnv(this);
@@ -79,12 +62,6 @@ describe('Environment Loader', () => {
     const pe = new ProcessEnv();
     expect(pe.BOOLEAN_WITH_DEFAULT_TRUE).toEqual(true);
     expect(pe.BOOLEAN_WITH_DEFAULT_FALSE).toEqual(false);
-    expect(pe.BOOLEAN_WITH_DEFAULT_TRUE_STRING).toEqual(true);
-    expect(pe.BOOLEAN_WITH_DEFAULT_FALSE_STRING).toEqual(false);
-    expect(pe.BOOLEAN_WITH_DEFAULT_WRONG_ANY_STRING).toEqual(true);
-    expect(pe.BOOLEAN_WITH_DEFAULT_2).toEqual(true);
-    expect(pe.BOOLEAN_WITH_DEFAULT_1).toEqual(true);
-    expect(pe.BOOLEAN_WITH_DEFAULT_0).toEqual(false);
     done();
   });
 

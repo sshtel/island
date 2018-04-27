@@ -9,6 +9,15 @@ var remapIstanbul = require('remap-istanbul/lib/gulpRemapIstanbul');
 
 var sources = ['./src/**/*.ts'];
 
+function executeIslandDocGen(options) {
+  options = options || {};
+  var islandDoc = require('island-doc').default;
+
+  return function (done) {
+    islandDoc.run(done);
+  };
+}
+
 function executeTypescriptCompiler(options) {
   options = options || {};
   options.project = options.project || process.cwd();
@@ -100,7 +109,8 @@ function doLint() {
     }));
 }
 
-gulp.task('build', ['tslint'], executeTypescriptCompiler());
+gulp.task('env-doc', executeIslandDocGen());
+gulp.task('build', ['tslint', 'env-doc'], executeTypescriptCompiler());
 gulp.task('buildIgnoreError', executeTypescriptCompiler({noEmitOnError: '', taskAlwaysSucceed: true}));
 gulp.task('clean', clean);
 gulp.task('coverage', ['coverage-js'], remapIstanbulTask);

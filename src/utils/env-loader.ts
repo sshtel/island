@@ -67,6 +67,12 @@ function makeDecorator(optionalSchema?: any) {
   };
 }
 
+function isInvalidEnvValue(value) {
+  if (value === undefined) return true;
+  if (typeof value === 'number' && isNaN(value)) return true;
+  return false;
+}
+
 function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
   let defaultValue: any = undefined;
 
@@ -74,21 +80,37 @@ function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
 
   _.some(keys, envKey => {
     if ([undefined, ''].indexOf(process.env[envKey]) < 0) {
-      defaultValue = process.env[envKey];
+      switch (schema.type) {
+        case 'boolean':
+          if (process.env[envKey].toLowerCase() === 'true') {
+            defaultValue = true;
+          } else if (process.env[envKey].toLowerCase() === 'false') {
+            defaultValue = false;
+          }
+          break;
+        case 'number':
+        case 'float':
+          defaultValue = parseFloat(process.env[envKey]);
+          break;
+        case 'int':
+        case 'integer':
+          defaultValue = parseInt(process.env[envKey], 10);
+          break;
+        case 'string':
+        default:
+          defaultValue = process.env[envKey];
+          break;
+      }
       return true;
     }
     return false;
   });
 
-  if (defaultValue === undefined) {
-    defaultValue = schema.default;
-  }
-
-  if (defaultValue === undefined) {
+  if (isInvalidEnvValue(defaultValue)) {
     defaultValue = object[itemKey];
   }
 
-  if (defaultValue === undefined && schema.optional === false) {
+  if (isInvalidEnvValue(defaultValue) && schema.optional === false) {
     throw new Error(`Environment "${itemKey}": not optional and has no data`);
   }
   object[itemKey] = defaultValue;
@@ -126,7 +148,6 @@ function setReadonly(object: any): void {
 
 /**
  * environment decorator - 3 custom options & schema-inspector options
- * default: string - Set Default Value when object default value & process.env is undefined
  * required: boolean - default true, also supports optional.
  * legacyKeys: array of string - find process.env[some of legacyKeys] when process.env[key] is undefined
  *
