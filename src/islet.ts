@@ -106,6 +106,7 @@ export default class Islet {
       await this.onPrepare();
       await Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize()));
       if (opts.SIGTERM) process.once('SIGTERM', this.destroy.bind(this));
+      process.once('SIGINT', this.destroy.bind(this));
       if (opts.SIGUSR2) process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
