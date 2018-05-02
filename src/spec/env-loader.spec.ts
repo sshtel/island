@@ -2,7 +2,7 @@ import { env, LoadEnv } from '../index';
 
 describe('Environment Loader', () => {
   it('should sanitize number types', done => {
-    process.env.NUMBER_WITH_DEFAULT_ENV = 10;
+    process.env.NUMBER_WITH_DEFAULT_ENV = '10';
     process.env.NUMBER_WITH_INVALID_ENV = 'OH MY GOD';
     process.env.NUMBER_WITH_INVALID_ENV_WITH_DEFAULT = 'OH MY GOD';
 

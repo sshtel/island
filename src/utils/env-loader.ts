@@ -79,31 +79,33 @@ function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
   const keys = (schema.legacyKeys && schema.legacyKeys.length) ? [itemKey].concat(schema.legacyKeys) : [itemKey];
 
   _.some(keys, envKey => {
-    if ([undefined, ''].indexOf(process.env[envKey]) < 0) {
-      switch (schema.type) {
-        case 'boolean':
-          if (process.env[envKey].toLowerCase() === 'true') {
-            defaultValue = true;
-          } else if (process.env[envKey].toLowerCase() === 'false') {
-            defaultValue = false;
-          }
-          break;
-        case 'number':
-        case 'float':
-          defaultValue = parseFloat(process.env[envKey]);
-          break;
-        case 'int':
-        case 'integer':
-          defaultValue = parseInt(process.env[envKey], 10);
-          break;
-        case 'string':
-        default:
-          defaultValue = process.env[envKey];
-          break;
-      }
-      return true;
+    const envVar = process.env[envKey];
+    if (envVar === undefined || envVar === '') {
+      return false;
     }
-    return false;
+
+    switch (schema.type) {
+      case 'boolean':
+        if (envVar.toLowerCase() === 'true') {
+          defaultValue = true;
+        } else if (envVar.toLowerCase() === 'false') {
+          defaultValue = false;
+        }
+        break;
+      case 'number':
+      case 'float':
+        defaultValue = parseFloat(envVar);
+        break;
+      case 'int':
+      case 'integer':
+        defaultValue = parseInt(envVar, 10);
+        break;
+      case 'string':
+      default:
+        defaultValue = envVar;
+        break;
+    }
+    return true;
   });
 
   if (isInvalidEnvValue(defaultValue)) {
