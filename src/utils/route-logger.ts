@@ -24,33 +24,30 @@ export interface RouteLogParams {
 }
 
 export class RouteLogger {
-  static saveLogs(routeLogParams: RouteLogParams[]): void {
-    for (var params of routeLogParams) {
-      RouteLogger.saveLog(params);
-    }
+  static isEnabled()  {
+    return Environments.ISLAND_TRACE_HEADER_LOG;
   }
 
   static tryToSaveLog(routeLogParams: RouteLogParams) {
-    if (!Environments.ISLAND_TRACE_HEADER_LOG) return;
+    if (!RouteLogger.isEnabled()) return;
 
     const {clsNameSpace} = routeLogParams;
     const ns = cls.getNamespace(clsNameSpace);
-    //If event occurr by cron, it's possible to empty active context;
+    // If event occurr by cron, it's possible to empty active context;
     if (!ns.active) return;
 
     RouteLogger.saveLog(routeLogParams);
   }
 
   static saveLog(routeLogParams: RouteLogParams): void {
-    if (!Environments.ISLAND_TRACE_HEADER_LOG) return;
+    if (!RouteLogger.isEnabled()) return;
 
     const {clsNameSpace,  type, protocol, correlationId, context } = routeLogParams;
     const ns = cls.getNamespace(clsNameSpace);
-    if (ns) return;
-    let routeLogs = ns.get('routeLogs') || [];
+    const routeLogs = ns.get('routeLogs') || [];
     routeLogs.push({
       node: Environments.getHostName(),
-      context: context,
+      context,
       sender: Environments.getServiceName(),
       type,
       protocol,
@@ -61,24 +58,24 @@ export class RouteLogger {
   }
 
   static getLogs(clsNameSpace): RouteLog[] {
-    if (!Environments.ISLAND_TRACE_HEADER_LOG) return [];
-    
+    if (!RouteLogger.isEnabled()) return [];
+
     const ns = cls.getNamespace(clsNameSpace);
     return ns.get('routeLogs') || [];
   }
 
-  static replaceLogs(clsNameSpace, routeLog: RouteLog[]): void {
-    if (!Environments.ISLAND_TRACE_HEADER_LOG) return;
+  static replaceLogs(clsNameSpace, routeLogs: RouteLog[]): void {
+    // console.log('replaceLogs', routeLogs);
+    if (!RouteLogger.isEnabled()) return;
 
     const ns = cls.getNamespace(clsNameSpace);
-    ns.set('routeLogs', routeLog);
+    ns.set('routeLogs', routeLogs);
   }
 
   static print(clsNameSpace: string): void {
-    if (!Environments.ISLAND_TRACE_HEADER_LOG) return;
+    if (!RouteLogger.isEnabled()) return;
 
     const ns = cls.getNamespace(clsNameSpace);
-    logger.debug(`TraceHeaderLog:\n${JSON.stringify(ns.get('routeLogs'), null, 2)}`);
+    logger.debug(`TraceHeaderLog:\n${JSON.stringify(ns.get('routeLogs'))}`);
   }
 }
-

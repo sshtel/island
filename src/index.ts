@@ -1,11 +1,13 @@
 // tslint:disable-next-line
 require('source-map-support').install();
 
-export import mongoose = require('mongoose');
-mongoose.Promise = Promise as any;
+// Don't change cls order!
 import { cls } from './utils/cls';
 cls.init();
 export { cls };
+
+export import mongoose = require('mongoose');
+mongoose.Promise = Promise as any;
 
 import Islet from './islet';
 export { Islet };

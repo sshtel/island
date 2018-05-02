@@ -8,11 +8,11 @@ import * as uuid from 'uuid';
 import { Environments } from '../utils/environments';
 import { Events } from '../utils/event';
 import { logger } from '../utils/logger';
-import { RouteLogger } from '../utils/route-logger';
 import reviver from '../utils/reviver';
-import { TraceLog } from '../utils/tracelog';
-
 import { collector } from '../utils/status-collector';
+
+import { RouteLogger } from '../utils/route-logger';
+import { TraceLog } from '../utils/tracelog';
 
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 import {
@@ -145,12 +145,23 @@ export class EventService {
     }
 
     const options = this.getOptions(event);
-    RouteLogger.tryToSaveLog({ clsNameSpace: 'app', type: 'req', context: `${event.constructor.name}`, protocol: 'EVENT', correlationId: uuid.v4() });
+    RouteLogger.tryToSaveLog(
+      { clsNameSpace: 'app',
+        type: 'req',
+        context: `${event.constructor.name}`,
+        protocol: 'EVENT',
+        correlationId: uuid.v4()
+      });
     logger.debug(`publish ${event.key}`, event.args, options.headers.tattoo);
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
         return this._publish(exchange, event.key, content, options);
       }));
+  }
+
+  registerHook(type: EventHookType, hook: EventHook) {
+    this.hooks[type] = this.hooks[type] || [];
+    this.hooks[type].push(hook);
   }
 
   private getOptions(event: Event<{}>): any {
@@ -164,17 +175,12 @@ export class EventService {
           island: this.serviceName,
           type: ns.get('Type')
         },
-        extra: { 
+        extra: {
           sessionType: ns.get('sessionType')
         }
       },
       timestamp: +event.publishedAt! || +new Date()
     };
-  }
-
-  registerHook(type: EventHookType, hook: EventHook) {
-    this.hooks[type] = this.hooks[type] || [];
-    this.hooks[type].push(hook);
   }
 
   private registerConsumer(channel: amqp.Channel, queue: string): Promise<any> {

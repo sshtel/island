@@ -1,3 +1,4 @@
+/* tslint:disable */
 let namespaces = {};
 
 function Namespace(name) {
@@ -23,7 +24,7 @@ Namespace.prototype.run = function (fn) {
 };
 
 Namespace.prototype.runAndReturn = function (fn) {
-  var value;
+  let value;
   this.run(function (context) {
     value = fn(context);
   });
@@ -31,9 +32,10 @@ Namespace.prototype.runAndReturn = function (fn) {
 };
 
 Namespace.prototype.bind = function (fn, context) {
-  return function() {
+  return function () {
     return fn.apply(this, arguments);
-  }};
+  };
+};
 
 Namespace.prototype.enter = function (context) {
   this.active = context;
@@ -49,7 +51,7 @@ function get(name) {
 }
 
 function create(name) {
-  var namespace = new Namespace(name);
+  const namespace = new Namespace(name);
   namespaces[name] = namespace;
   return namespace;
 }
@@ -66,5 +68,5 @@ module.exports = {
   getNamespace     : get,
   createNamespace  : create,
   destroyNamespace : destroy,
-  reset            : reset
+  reset
 };

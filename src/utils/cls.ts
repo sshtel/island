@@ -1,7 +1,9 @@
-const USE_CLS = false;
+/* tslint:disable */
+// Don't import any module! this file use hack!
+let ISLAND_USE_CLS = !(process.env.ISLAND_USE_CLS == 'false');
 let cls;
 
-if (USE_CLS) {
+if (ISLAND_USE_CLS) {
   cls = require('continuation-local-storage');
   const ns = cls.getNamespace('app') || cls.createNamespace('app');
   require('cls-mongoose')(ns);
@@ -10,10 +12,8 @@ if (USE_CLS) {
   cls = require('./mock-cls');
   cls.getNamespace('app') || cls.createNamespace('app');
 }
-cls['init'] = function() {
-  //make sure it is always imported;
-}
+cls.init = () => {
+// make sure it is always imported;
+};
 
 export { cls };
-
-
