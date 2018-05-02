@@ -1,11 +1,11 @@
 import * as amqp from 'amqplib';
+import { CalculatedData, StatusExporter } from 'island-status-exporter';
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 
 import Islet from '../islet';
-import { BaseEvent } from '../services/event-subscriber';
 import { EventService } from '../services/event-service';
-import { CalculatedData, StatusExporter } from 'island-status-exporter';
+import { BaseEvent } from '../services/event-subscriber';
 import { Environments } from '../utils/environments';
 import { logger } from '../utils/logger';
 
@@ -44,14 +44,14 @@ export interface RequestStatistics {
   totalReceivedTime: number;
   totalExecutionTime: number;
   totalErrorTime: number;
-};
+}
 
 export interface CollectOptions {
   requestId?: string;
   msg?: Message;
   err?: any;
   ignoreTimestamp?: boolean;
-};
+}
 
 class RequestStatisticsMaker {
   static create(): RequestStatistics {

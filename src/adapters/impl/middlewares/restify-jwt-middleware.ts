@@ -1,5 +1,5 @@
-import restify = require('restify');
 import jwt = require('jsonwebtoken');
+import restify = require('restify');
 
 export interface IToken {
   sid: string;

@@ -8,7 +8,7 @@ let purging: Function | null = null;
 export namespace IntervalHelper {
     export function getIntervalList() {
         return list;
-    };
+    }
 
     export async function setIslandInterval(handler: Function, time) {
         const job = setInterval(async () => {
@@ -20,7 +20,7 @@ export namespace IntervalHelper {
         }, time);
         await list.push(job);
         return job;
-    };
+    }
 
     export async function purge() {
         logger.info('Island interval service purge');

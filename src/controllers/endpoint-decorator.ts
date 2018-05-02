@@ -196,7 +196,7 @@ export namespace sanitize {
   export type SanitizePropertyTypes =
     typeof global.String | string | _String |
     typeof global.Number | number | _Number |
-    typeof Boolean | boolean | 
+    typeof Boolean | boolean |
     typeof Date | _Object | _Array | _Any |
     _ObjectId | _Cider | _NumberOrQuery;
 
@@ -328,19 +328,19 @@ export namespace sanitize {
 
 export namespace validate {
   // tslint:disable-next-line class-name
-  export interface _ObjectId { $validate: Symbol; };
+  export interface _ObjectId { $validate: Symbol; }
   export const ObjectId: _ObjectId = { $validate: Symbol() };
   // tslint:disable-next-line class-name
-  export interface _Cider { $validate: Symbol; };
+  export interface _Cider { $validate: Symbol; }
   export const Cider: _Cider = { $validate: Symbol() };
   // tslint:disable-next-line class-name
-  export interface _NumberOrQuery { $validate: Symbol; };
+  export interface _NumberOrQuery { $validate: Symbol; }
   export const NumberOrQuery: _NumberOrQuery = { $validate: Symbol() };
   // tslint:disable-next-line class-name
-  export interface _Any { $validate: Symbol; };
+  export interface _Any { $validate: Symbol; }
   export const Any: _Any = { $validate: Symbol() };
   // tslint:disable-next-line class-name
-  export interface _Html { $validate: Symbol; };
+  export interface _Html { $validate: Symbol; }
   export const Html: _Html = { $validate: Symbol() };
 
   // tslint:disable-next-line class-name

@@ -1,6 +1,5 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-require('dns-consul');
 
 export import mongoose = require('mongoose');
 mongoose.Promise = Promise as any;
@@ -107,6 +106,7 @@ export {
 export { Events } from './utils/event';
 export { IntervalHelper } from './utils/interval-helper';
 export { collector } from './utils/status-collector';
+export { env, LoadEnv } from './utils/env-loader';
 
 export { Di, ObjectWrapper, ObjectFactory } from 'island-di';
 export { Loggers } from 'island-loggers';

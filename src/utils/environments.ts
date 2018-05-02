@@ -1,87 +1,244 @@
+import { env, LoadEnv } from '../utils/env-loader';
+
 export type LoggerLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'crit';
 
-export class Environments {
-  static isDevMode(): boolean {
-    return process.env.USE_DEV_MODE === 'true';
+export class IslandEnvironments {
+  public static getInstance(): IslandEnvironments {
+    IslandEnvironments._instance = IslandEnvironments._instance || new IslandEnvironments();
+    return IslandEnvironments._instance;
+  }
+  private static _instance: IslandEnvironments;
+
+  @env({ legacyKeys: ['SERVICE_NAME'] })
+  public ISLAND_SERVICE_NAME: string = 'no-service-name';
+
+  // TraceLog uses this as a name of node
+  @env({ legacyKeys: ['HOSTNAME'] })
+  public ISLAND_HOST_NAME: string = 'no-host-name';
+
+  // When true, allows APIs which has options.developmentOnly
+  @env({ legacyKeys: ['USE_DEV_MODE'] })
+  public ISLAND_USE_DEV_MODE: boolean = false;
+
+  // currently able Push format json and msgpack
+  @env({ required: false, legacyKeys: ['SERIALIZE_FORMAT_PUSH'] })
+  public ISLAND_SERIALIZE_FORMAT_PUSH: string = 'msgpack';
+
+  @env({ legacyKeys: ['EVENT_PREFETCH'] })
+  public ISLAND_EVENT_PREFETCH: number = 100;
+
+  // Count of RPC Prefetch
+  @env({ legacyKeys: ['RPC_PREFETCH'] })
+  public ISLAND_RPC_PREFETCH: number = 100;
+
+  // Timeout during RPC execution
+  @env()
+  public ISLAND_RPC_EXEC_TIMEOUT_MS: number = 25000;
+
+  // Timeout during RPC call
+  @env()
+  public ISLAND_RPC_WAIT_TIMEOUT_MS: number = 60000;
+
+  // Time to load service
+  @env()
+  public ISLAND_SERVICE_LOAD_TIME_MS: number = 60000;
+
+  // Log level for logger
+  @env({ eq: ['debug', 'info', 'notice', 'warning', 'error', 'crit'] })
+  public ISLAND_LOGGER_LEVEL: string = 'info';
+
+  @env({ eq: ['short', 'long', 'json'] })
+  public ISLAND_LOGGER_TYPE: string = 'short';
+
+  @env()
+  public ISLAND_RPC_RES_NOACK: boolean = false;
+
+  @env({ legacyKeys: ['NO_REVIVER'] })
+  public ISLAND_NO_REVIVER: boolean = false;
+
+  // If it is true, use island-status-exporter
+  @env({ legacyKeys: ['STATUS_EXPORT'] })
+  public ISLAND_STATUS_EXPORT: boolean = false;
+
+  // Time to save file for instance status
+  @env({ legacyKeys: ['STATUS_EXPORT_TIME_MS'] })
+  public ISLAND_STATUS_EXPORT_TIME_MS: number = 10 * 1000;
+
+  // island-status-exporter uses this as a name for file
+  @env({ required: false, legacyKeys: ['STATUS_FILE_NAME'] })
+  public ISLAND_STATUS_FILE_NAME: string;
+
+  // status-exporter uses this type for saving data
+  @env({ legacyKeys: ['STATUS_EXPORT_TYPE'] })
+  public ISLAND_STATUS_EXPORT_TYPE: string = 'FILE';
+
+  // MQ(formatted by amqp URI) for TraceLog. If omitted it doesn't log
+  @env({ required: false })
+  public ISLAND_TRACEMQ_HOST: string;
+
+  // A queue name to log TraceLog
+  @env()
+  public ISLAND_TRACEMQ_QUEUE: string = 'trace';
+
+  // When true, add trace log to msg.header
+  @env()
+  public ISLAND_TRACE_HEADER_LOG: boolean = false;
+
+  @env({ required: false, legacyKeys: ['ENDPOINT_SESSION_GROUP'] })
+  public ISLAND_ENDPOINT_SESSION_GROUP: string;
+
+  // The address of consul.
+  @env({ legacyKeys: ['CONSUL_HOST'] })
+  public ISLAND_CONSUL_HOST: string = 'consul';
+
+  // consul port. work with CONSUL_HOST
+  @env({ legacyKeys: ['CONSUL_PORT'] })
+  public ISLAND_CONSUL_PORT: string = '8500';
+
+  @env({ required: false, legacyKeys: ['CONSUL_NAMESPACE'] })
+  public ISLAND_CONSUL_NAMESPACE: string;
+
+  @env({ required: false, legacyKeys: ['CONSUL_TOKEN'] })
+  public ISLAND_CONSUL_TOKEN: string;
+
+  // The address of rabbitmq.
+  @env({ legacyKeys: ['RABBITMQ_HOST'] })
+  public ISLAND_RABBITMQ_HOST: string = 'amqp://rabbitmq:5672';
+
+  @env({ required: false, legacyKeys: ['RABBITMQ_PUSH_HOST'] })
+  public ISLAND_RABBITMQ_PUSH_HOST: string;
+
+  @env({ required: false, legacyKeys: ['RABBITMQ_RPC_HOST'] })
+  public ISLAND_RABBITMQ_RPC_HOST: string;
+
+  @env({ required: false, legacyKeys: ['RABBITMQ_EVENT_HOST'] })
+  public ISLAND_RABBITMQ_EVENT_HOST: string;
+
+  @env({ legacyKeys: ['RABBITMQ_POOLSIZE'] })
+  public ISLAND_RABBITMQ_POOLSIZE: number = 100;
+
+  @env({ required: false, legacyKeys: ['REDIS_AUTH'] })
+  public ISLAND_REDIS_AUTH: string;
+
+  // The address of redishost.
+  @env({ legacyKeys: ['REDIS_HOST'] })
+  public ISLAND_REDIS_HOST: string = 'redis';
+
+  @env({ legacyKeys: ['REDIS_PORT'] })
+  public ISLAND_REDIS_PORT: number = 6379;
+
+  @env({ legacyKeys: ['MONGO_HOST'] })
+  public ISLAND_MONGO_HOST: string = 'mongodb://mongodb:27017';
+
+  // @env()
+  // public ISLAND_IGNORE_EVENT_LOG: string = '';
+
+  constructor() {
+    if (IslandEnvironments._instance) {
+      throw new Error(`Error - use IslandEnvironments.getInstance()`);
+    }
+    LoadEnv(this);
   }
 
-  static getHostName(): string | undefined {
-    return process.env.HOSTNAME;
+  public isDevMode(): boolean {
+    return this.ISLAND_USE_DEV_MODE;
   }
 
-  static getServiceName(): string | undefined {
-    return process.env.SERVICE_NAME;
+  public getHostName(): string | undefined {
+    return this.ISLAND_HOST_NAME;
   }
 
-  static getEventPrefetch(): number {
-    return +process.env.EVENT_PREFETCH! || 100;
+  public getServiceName(): string | undefined {
+    return this.ISLAND_SERVICE_NAME;
   }
 
-  static getRpcPrefetch(): number {
-    return +process.env.RPC_PREFETCH! || 100;
+  public getEventPrefetch(): number {
+    return this.ISLAND_EVENT_PREFETCH;
   }
 
-  static getSerializeFormatPush(): string | undefined {
-    return process.env.SERIALIZE_FORMAT_PUSH;
+  public getRpcPrefetch(): number {
+    return this.ISLAND_RPC_PREFETCH;
   }
 
-  static getIslandRpcExecTimeoutMs(): number {
-    return parseInt(process.env.ISLAND_RPC_EXEC_TIMEOUT_MS!, 10) || 25000;
+  public getSerializeFormatPush(): string {
+    return this.ISLAND_SERIALIZE_FORMAT_PUSH;
   }
 
-  static getIslandRpcWaitTimeoutMs(): number {
-    return parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS!, 10) || 60000;
+  public getIslandRpcExecTimeoutMs(): number {
+    return this.ISLAND_RPC_EXEC_TIMEOUT_MS;
   }
 
-  static getIslandServiceLoadTimeMs(): number {
-    return parseInt(process.env.ISLAND_SERVICE_LOAD_TIME_MS!, 10) || 60000;
+  public getIslandRpcWaitTimeoutMs(): number {
+    return this.ISLAND_RPC_WAIT_TIMEOUT_MS;
   }
 
-  static isIslandRpcResNoack(): boolean {
-    return process.env.ISLAND_RPC_RES_NOACK === 'true';
+  public getIslandServiceLoadTimeMs(): number {
+    return this.ISLAND_SERVICE_LOAD_TIME_MS;
   }
 
-  static isNoReviver(): boolean {
-    return process.env.NO_REVIVER === 'true';
+  public isIslandRpcResNoack(): boolean {
+    return this.ISLAND_RPC_RES_NOACK;
   }
 
-  static getIslandLoggerLevel(): LoggerLevel {
-    return (process.env.ISLAND_LOGGER_LEVEL || 'info') as LoggerLevel;
+  public isNoReviver(): boolean {
+    return this.ISLAND_NO_REVIVER;
   }
 
-  static isStatusExport(): boolean {
-    return process.env.STATUS_EXPORT === 'true';
+  public getIslandLoggerLevel(): LoggerLevel {
+    return (this.ISLAND_LOGGER_LEVEL) as LoggerLevel;
   }
 
-  static getStatusExportTimeMs(): number {
-    return parseInt(process.env.STATUS_EXPORT_TIME_MS!, 10) || 10 * 1000;
+  public isStatusExport(): boolean {
+    return this.ISLAND_STATUS_EXPORT;
   }
 
-  static getStatusFileName(): string | undefined {
-    return process.env.STATUS_FILE_NAME;
+  public getStatusExportTimeMs(): number {
+    return this.ISLAND_STATUS_EXPORT_TIME_MS;
   }
 
-  static getStatusExportType(): string {
-    return process.env.STATUS_EXPORT_TYPE || 'FILE';
+  public getStatusFileName(): string | undefined {
+    return this.ISLAND_STATUS_FILE_NAME;
   }
 
-  static getIslandTracemqHost(): string | undefined {
-    return process.env.ISLAND_TRACEMQ_HOST;
+  public getStatusExportType(): string {
+    return this.ISLAND_STATUS_EXPORT_TYPE;
   }
 
-  static getIslandTracemqQueue(): string {
-    return process.env.ISLAND_TRACEMQ_QUEUE || 'trace';
+  public getIslandTracemqHost(): string | undefined {
+    return this.ISLAND_TRACEMQ_HOST;
   }
 
-  static isUsingTraceHeaderLog(): boolean {
-    return process.env.ISLAND_TRACE_HEADER_LOG === 'true';
+  public getIslandTracemqQueue(): string {
+    return this.ISLAND_TRACEMQ_QUEUE;
   }
 
-  static getIgnoreEventLogRegexp(): string {
+  public isUsingTraceHeaderLog(): boolean {
+    return this.ISLAND_TRACE_HEADER_LOG;
+  }
+
+  public getIgnoreEventLogRegexp(): string {
+    // Ignore the log for Event containing this Env
     return (process.env.ISLAND_IGNORE_EVENT_LOG || '').split(',').join('|');
   }
 
-  static getEndpointSessionGroup(): string | undefined {
-    return process.env.ENDPOINT_SESSION_GROUP;
+  public getEndpointSessionGroup(): string | undefined {
+    return this.ISLAND_ENDPOINT_SESSION_GROUP;
+  }
+
+  public refreshEnvForDebug() {
+    LoadEnv(this);
+    this.logProperties();
+  }
+
+  public logProperties() {
+    // Use console.info instead of logger.info
+    // for remove circular dependency - logger and environments
+    console.info(`[Environments] Default Island Environments`);
+    for (const key in this) {
+      if (!this.hasOwnProperty(key)) continue;
+      console.info(`${key}${' '.repeat(40 - key.length)}: ${this[key]}`);
+    }
   }
 }
+
+export const Environments = IslandEnvironments.getInstance();
