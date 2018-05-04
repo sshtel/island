@@ -49,6 +49,7 @@ export interface RequestStatistics {
 export interface CollectOptions {
   requestId?: string;
   msg?: Message;
+  shard?: number;
   err?: any;
   ignoreTimestamp?: boolean;
 }
@@ -101,6 +102,11 @@ export class StatusCollector {
     this.onGoingMap.set(requestId, { reqTime });
 
     if (options.msg && options.msg.properties && options.msg.properties.timestamp) {
+      const elapsedFromPublished = reqTime - options.msg.properties.timestamp;
+      if (elapsedFromPublished > 1000) {
+        logger.warning('SLOW recv', name, elapsedFromPublished, options.shard);
+      }
+
       stat.totalReceivedTime += reqTime - options.msg.properties.timestamp;
     }
 

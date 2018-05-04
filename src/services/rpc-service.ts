@@ -499,14 +499,14 @@ export default class RPCService {
 
   private async startConsumingQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
-      await Bluebird.each(queues, async queue => {
-        const consumerInfo = await this.startConsumingQueue(queue);
+      await Bluebird.each(queues, async (queue, shard) => {
+        const consumerInfo = await this.startConsumingQueue(queue, shard);
         this.requestConsumerInfo.push(consumerInfo);
       });
     });
   }
 
-  private async startConsumingQueue(queue: string): Promise<IConsumerInfo> {
+  private async startConsumingQueue(queue: string, shard: number): Promise<IConsumerInfo> {
     return this._consume(queue, async (msg: Message) => {
       const rpcName = msg.fields.exchange;
       if (!this.rpcEntities[rpcName]) {
@@ -525,7 +525,7 @@ export default class RPCService {
       return this.enterCLS(tattoo, rpcName, extra, async () => {
         const options = { correlationId, headers };
         const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
+        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
         try {
           this.increaseRequest(rpcName, 1);
           await Bluebird.resolve()
