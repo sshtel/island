@@ -1,4 +1,4 @@
-import { cls } from '../utils/cls';
+import { cls } from 'island-loggers';
 import { Environments } from '../utils/environments';
 import { logger } from '../utils/logger';
 

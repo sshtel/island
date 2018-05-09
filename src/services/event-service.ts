@@ -1,4 +1,4 @@
-import { cls } from '../utils/cls';
+import { cls } from 'island-loggers';
 
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
