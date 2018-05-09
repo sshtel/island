@@ -255,7 +255,7 @@ export default class RPCService {
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
       this.waitingResponse[option.correlationId!].reject(e);
-      delete this.waitingResponse[option.correlationId!];
+      this.waitingResponse = _.omit(this.waitingResponse, option.correlationId!);
     }
     return await p;
   }
@@ -290,11 +290,11 @@ export default class RPCService {
   }
 
   private throwTimeout(name, corrId: string) {
-    delete this.waitingResponse[corrId];
+    this.waitingResponse = _.omit(this.waitingResponse, corrId);
     this.timedOut[corrId] = name;
     this.timedOutOrdered.push(corrId);
     if (20 < this.timedOutOrdered.length) {
-      delete this.timedOut[this.timedOutOrdered.shift()!];
+      this.timedOut = _.omit(this.timedOut, this.timedOutOrdered.shift()!);
     }
     const err = new FatalError(ISLAND.FATAL.F0023_RPC_TIMEOUT,
                                `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
@@ -325,8 +325,8 @@ export default class RPCService {
       }
       if (this.timedOut[correlationId]) {
         const name = this.timedOut[correlationId];
-        delete this.timedOut[correlationId];
-        _.pull(this.timedOutOrdered, correlationId);
+        this.timedOut = _.omit(this.timedOut, correlationId);
+        this.timedOutOrdered = _.pull(this.timedOutOrdered, correlationId);
 
         logger.warning(`Got a response of \`${name}\` after timed out - ${correlationId}`);
         return;
@@ -336,7 +336,7 @@ export default class RPCService {
         logger.notice(`Got an unknown response - ${correlationId}`);
         return;
       }
-      delete this.waitingResponse[correlationId];
+      this.waitingResponse = _.omit(this.waitingResponse, correlationId);
       return waiting.resolve(msg);
     }, Environments.ISLAND_RPC_RES_NOACK);
   }
@@ -346,7 +346,7 @@ export default class RPCService {
       this.waitingResponse[corrId] = { resolve, reject };
     }).then((msg: Message) => {
       const clsScoped = cls.getNamespace('app').bind((msg: Message) => {
-        delete this.waitingResponse[corrId];
+        this.waitingResponse = _.omit(this.waitingResponse, corrId);
         return handleResponse(msg);
       });
       return clsScoped(msg);

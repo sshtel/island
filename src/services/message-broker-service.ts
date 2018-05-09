@@ -56,7 +56,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
     await this.checkInitialized();
     await this.unbindQueue(this.roundRobinEventQ, MessageBrokerService.EXCHANGE_NAME, pattern);
 
-    delete this.handlers[pattern];
+    this.handlers = _.omit(this.handlers, pattern);
   }
 
   async subscribeFanout(pattern: string, handler?: Handler): Promise<void> {
@@ -70,7 +70,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
     await this.checkInitialized();
     await this.unbindQueue(this.fanoutEventQ, MessageBrokerService.EXCHANGE_NAME, pattern);
 
-    delete this.handlers[pattern];
+    this.handlers = _.omit(this.handlers, pattern);
   }
 
   async publish<T>(key: string, msg: T): Promise<void> {
