@@ -21,8 +21,6 @@ import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
 export { IRpcResponse, RpcRequest, RpcResponse };
 
-const RPC_QUEUE_DISTRIB_SIZE = 16;
-
 export type RpcType = 'rpc' | 'endpoint';
 export interface IConsumerInfo {
   channel: amqp.Channel;
@@ -186,7 +184,7 @@ export default class RPCService {
   }
 
   public async listen() {
-    const queues = _.map(_.range(RPC_QUEUE_DISTRIB_SIZE), no => (`rpc.req.${this.serviceName}.${no}`));
+    const queues = _.map(_.range(Environments.getRpcDistribSize()), no => (`rpc.req.${this.serviceName}.${no}`));
     await this.assertQueues(queues);
     await this.assertExchanges(this.rpcEntities);
     await this.bindQueuesToExchanges(queues, this.rpcEntities);
@@ -253,7 +251,7 @@ export default class RPCService {
 
     const content = new Buffer(JSON.stringify(msg), 'utf8');
     try {
-      const routingKey = '' + _.random(0, RPC_QUEUE_DISTRIB_SIZE - 1);
+      const routingKey = '' + _.random(0, Environments.getRpcDistribSize() - 1);
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
       this.waitingResponse[option.correlationId!].reject(e);
