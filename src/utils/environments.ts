@@ -130,6 +130,9 @@ export class IslandEnvironments {
   @env({ legacyKeys: ['MONGO_HOST'] })
   public ISLAND_MONGO_HOST: string = 'mongodb://mongodb:27017';
 
+  @env()
+  public ISLAND_RPC_DISTRIB_SIZE: number = 16;
+
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
 
@@ -238,6 +241,10 @@ export class IslandEnvironments {
       if (!this.hasOwnProperty(key)) continue;
       console.info(`${key}${' '.repeat(40 - key.length)}: ${this[key]}`);
     }
+  }
+
+  public getRpcDistribSize(): number {
+    return this.ISLAND_RPC_DISTRIB_SIZE;
   }
 }
 

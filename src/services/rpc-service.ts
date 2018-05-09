@@ -21,8 +21,6 @@ import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
 export { IRpcResponse, RpcRequest, RpcResponse };
 
-const RPC_QUEUE_DISTRIB_SIZE = 16;
-
 export type RpcType = 'rpc' | 'endpoint';
 export interface IConsumerInfo {
   channel: amqp.Channel;
@@ -186,7 +184,7 @@ export default class RPCService {
   }
 
   public async listen() {
-    const queues = _.map(_.range(RPC_QUEUE_DISTRIB_SIZE), no => (`rpc.req.${this.serviceName}.${no}`));
+    const queues = _.map(_.range(Environments.getRpcDistribSize()), no => (`rpc.req.${this.serviceName}.${no}`));
     await this.assertQueues(queues);
     await this.assertExchanges(this.rpcEntities);
     await this.bindQueuesToExchanges(queues, this.rpcEntities);
@@ -253,7 +251,7 @@ export default class RPCService {
 
     const content = new Buffer(JSON.stringify(msg), 'utf8');
     try {
-      const routingKey = '' + _.random(0, RPC_QUEUE_DISTRIB_SIZE - 1);
+      const routingKey = '' + _.random(0, Environments.getRpcDistribSize() - 1);
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
       this.waitingResponse[option.correlationId!].reject(e);
@@ -499,14 +497,14 @@ export default class RPCService {
 
   private async startConsumingQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
-      await Bluebird.each(queues, async queue => {
-        const consumerInfo = await this.startConsumingQueue(queue);
+      await Bluebird.each(queues, async (queue, shard) => {
+        const consumerInfo = await this.startConsumingQueue(queue, shard);
         this.requestConsumerInfo.push(consumerInfo);
       });
     });
   }
 
-  private async startConsumingQueue(queue: string): Promise<IConsumerInfo> {
+  private async startConsumingQueue(queue: string, shard: number): Promise<IConsumerInfo> {
     return this._consume(queue, async (msg: Message) => {
       const rpcName = msg.fields.exchange;
       if (!this.rpcEntities[rpcName]) {
@@ -525,7 +523,7 @@ export default class RPCService {
       return this.enterCLS(tattoo, rpcName, extra, async () => {
         const options = { correlationId, headers };
         const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
+        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
         try {
           this.increaseRequest(rpcName, 1);
           await Bluebird.resolve()
