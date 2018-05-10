@@ -1,4 +1,4 @@
-import * as cls from 'continuation-local-storage';
+import { cls } from 'island-loggers';
 
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
@@ -9,9 +9,10 @@ import { Environments } from '../utils/environments';
 import { Events } from '../utils/event';
 import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
-import { TraceLog } from '../utils/tracelog';
-
 import { collector } from '../utils/status-collector';
+
+import { RouteLogger } from '../utils/route-logger';
+import { TraceLog } from '../utils/tracelog';
 
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 import {
@@ -23,6 +24,7 @@ import {
   PatternSubscriber,
   Subscriber
 } from './event-subscriber';
+
 export type EventHook = (obj) => Promise<any>;
 export enum EventHookType {
   EVENT,
@@ -141,20 +143,16 @@ export class EventService {
       exchange = args[0];
       event = args[1];
     }
-    const ns = cls.getNamespace('app');
-    const tattoo = ns.get('RequestTrackId');
-    const context = ns.get('Context');
-    const type = ns.get('Type');
-    const sessionType = ns.get('sessionType');
-    logger.debug(`publish ${event.key}`, event.args, tattoo);
-    const options = {
-      headers: {
-        tattoo,
-        from: { node: Environments.getHostName(), context, island: this.serviceName, type },
-        extra: { sessionType }
-      },
-      timestamp: +event.publishedAt! || +new Date()
-    };
+
+    const options = this.getOptions(event);
+    RouteLogger.tryToSaveLog(
+      { clsNameSpace: 'app',
+        type: 'req',
+        context: `${event.constructor.name}`,
+        protocol: 'EVENT',
+        correlationId: uuid.v4()
+      });
+    logger.debug(`publish ${event.key}`, event.args, options.headers.tattoo);
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
         return this._publish(exchange, event.key, content, options);
@@ -164,6 +162,25 @@ export class EventService {
   registerHook(type: EventHookType, hook: EventHook) {
     this.hooks[type] = this.hooks[type] || [];
     this.hooks[type].push(hook);
+  }
+
+  private getOptions(event: Event<{}>): any {
+    const ns = cls.getNamespace('app');
+    return {
+      headers: {
+        tattoo: ns.get('RequestTrackId'),
+        from: {
+          node: Environments.getHostName(),
+          context: ns.get('Context'),
+          island: this.serviceName,
+          type: ns.get('Type')
+        },
+        extra: {
+          sessionType: ns.get('sessionType')
+        }
+      },
+      timestamp: +event.publishedAt! || +new Date()
+    };
   }
 
   private registerConsumer(channel: amqp.Channel, queue: string): Promise<any> {

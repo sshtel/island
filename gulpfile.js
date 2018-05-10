@@ -102,6 +102,7 @@ function doLint() {
   if (process.env.npm_lifecycle_event === 'test') return;
   return gulp.src('src/**/*.ts')
     .pipe(tslint({
+      fix: true,
       formatter: 'stylish'
     }))
     .pipe(tslint.report({

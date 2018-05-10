@@ -1,13 +1,7 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-
-import * as cls from 'continuation-local-storage';
-const ns = cls.getNamespace('app') || cls.createNamespace('app');
-
-// tslint:disable
-require('cls-mongoose')(ns);
-require('cls-bluebird')(ns);
-// tslint:enable
+// Don't change the order;
+export { Loggers, cls } from 'island-loggers';
 
 export import mongoose = require('mongoose');
 mongoose.Promise = Promise as any;
@@ -111,4 +105,4 @@ export { collector } from './utils/status-collector';
 export { env, LoadEnv } from './utils/env-loader';
 
 export { Di, ObjectWrapper, ObjectFactory } from 'island-di';
-export { Loggers } from 'island-loggers';
+export { RouteLogger } from './utils/route-logger';
