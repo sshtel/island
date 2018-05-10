@@ -15,16 +15,13 @@ export { default as ListenableAdapter } from './adapters/listenable-adapter';
 
 // adapters/impl
 export { default as MessageBrokerAdapter } from './adapters/impl/message-broker-adapter';
-export { default as MongooseAdapter } from './adapters/impl/mongoose-adapter';
-export { default as PushAdapter } from './adapters/impl/push-adapter';
-export { default as RedisConnectionAdapter } from './adapters/impl/redis-connection-adapter';
-export { default as RestifyAdapter } from './adapters/impl/restify-adapter';
-export { default as RPCAdapter } from './adapters/impl/rpc-adapter';
-export { default as SocketIOAdapter } from './adapters/impl/socketio-adapter';
-export {
-  default as RabbitMqAdapter,
-  RabbitMqAdapterOptions
-} from './adapters/impl/rabbitmq-adapter';
+export { default as MongooseAdapter, MongooseAdapterOptions } from './adapters/impl/mongoose-adapter';
+export { default as PushAdapter, PushAdapterOptions } from './adapters/impl/push-adapter';
+export { default as RedisConnectionAdapter, RedisAdapterOptions } from './adapters/impl/redis-connection-adapter';
+export { default as RestifyAdapter, RestifyAdapterOptions } from './adapters/impl/restify-adapter';
+export { default as RPCAdapter, RPCAdapterOptions } from './adapters/impl/rpc-adapter';
+export { default as SocketIOAdapter, SocketIOAdapterOptions } from './adapters/impl/socketio-adapter';
+export { default as RabbitMqAdapter, RabbitMqAdapterOptions } from './adapters/impl/rabbitmq-adapter';
 export { AmqpChannelPoolAdapter } from './adapters/impl/amqp-channel-pool-adapter';
 export { EventAdapter, EventAdapterOptions } from './adapters/impl/event-adapter';
 

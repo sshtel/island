@@ -21,8 +21,6 @@ import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 
 export { IRpcResponse, RpcRequest, RpcResponse };
 
-const RPC_QUEUE_DISTRIB_SIZE = 16;
-
 export type RpcType = 'rpc' | 'endpoint';
 export interface IConsumerInfo {
   channel: amqp.Channel;
@@ -186,7 +184,7 @@ export default class RPCService {
   }
 
   public async listen() {
-    const queues = _.map(_.range(RPC_QUEUE_DISTRIB_SIZE), no => (`rpc.req.${this.serviceName}.${no}`));
+    const queues = _.map(_.range(Environments.getRpcDistribSize()), no => (`rpc.req.${this.serviceName}.${no}`));
     await this.assertQueues(queues);
     await this.assertExchanges(this.rpcEntities);
     await this.bindQueuesToExchanges(queues, this.rpcEntities);
@@ -252,11 +250,11 @@ export default class RPCService {
 
     const content = new Buffer(JSON.stringify(msg), 'utf8');
     try {
-      const routingKey = '' + _.random(0, RPC_QUEUE_DISTRIB_SIZE - 1);
+      const routingKey = '' + _.random(0, Environments.getRpcDistribSize() - 1);
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
       this.waitingResponse[option.correlationId!].reject(e);
-      delete this.waitingResponse[option.correlationId!];
+      this.waitingResponse = _.omit(this.waitingResponse, option.correlationId!);
     }
     return await p;
   }
@@ -291,11 +289,11 @@ export default class RPCService {
   }
 
   private throwTimeout(name, corrId: string) {
-    delete this.waitingResponse[corrId];
+    this.waitingResponse = _.omit(this.waitingResponse, corrId);
     this.timedOut[corrId] = name;
     this.timedOutOrdered.push(corrId);
     if (20 < this.timedOutOrdered.length) {
-      delete this.timedOut[this.timedOutOrdered.shift()!];
+      this.timedOut = _.omit(this.timedOut, this.timedOutOrdered.shift()!);
     }
     const err = new FatalError(ISLAND.FATAL.F0023_RPC_TIMEOUT,
                                `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
@@ -326,8 +324,8 @@ export default class RPCService {
       }
       if (this.timedOut[correlationId]) {
         const name = this.timedOut[correlationId];
-        delete this.timedOut[correlationId];
-        _.pull(this.timedOutOrdered, correlationId);
+        this.timedOut = _.omit(this.timedOut, correlationId);
+        this.timedOutOrdered = _.pull(this.timedOutOrdered, correlationId);
 
         logger.warning(`Got a response of \`${name}\` after timed out - ${correlationId}`);
         return;
@@ -337,7 +335,7 @@ export default class RPCService {
         logger.notice(`Got an unknown response - ${correlationId}`);
         return;
       }
-      delete this.waitingResponse[correlationId];
+      this.waitingResponse = _.omit(this.waitingResponse, correlationId);
       return waiting.resolve(msg);
     }, Environments.ISLAND_RPC_RES_NOACK);
   }
@@ -347,7 +345,7 @@ export default class RPCService {
       this.waitingResponse[corrId] = { resolve, reject };
     }).then((msg: Message) => {
       const clsScoped = cls.getNamespace('app').bind((msg: Message) => {
-        delete this.waitingResponse[corrId];
+        this.waitingResponse = _.omit(this.waitingResponse, corrId);
         return handleResponse(msg);
       });
       return clsScoped(msg);
@@ -504,14 +502,14 @@ export default class RPCService {
 
   private async startConsumingQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
-      await Bluebird.each(queues, async queue => {
-        const consumerInfo = await this.startConsumingQueue(queue);
+      await Bluebird.each(queues, async (queue, shard) => {
+        const consumerInfo = await this.startConsumingQueue(queue, shard);
         this.requestConsumerInfo.push(consumerInfo);
       });
     });
   }
 
-  private async startConsumingQueue(queue: string): Promise<IConsumerInfo> {
+  private async startConsumingQueue(queue: string, shard: number): Promise<IConsumerInfo> {
     return this._consume(queue, async (msg: Message) => {
       const rpcName = msg.fields.exchange;
       if (!this.rpcEntities[rpcName]) {
@@ -527,7 +525,7 @@ export default class RPCService {
       return this.enterCLS(tattoo, rpcName, extra, async () => {
         const options = { correlationId, headers };
         const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
-        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg });
+        const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
         try {
           this.increaseRequest(rpcName, 1);
           await Bluebird.resolve()
