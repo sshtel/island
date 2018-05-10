@@ -171,6 +171,7 @@ $ RABBITMQ_HOST=localhost npm test
 | ISLAND_REDIS_HOST             | string  | 'redis'                   | The address of redishost.                                         | 'REDIS_HOST'             |
 | ISLAND_REDIS_PORT             | number  | 6379                      |                                                                   | 'REDIS_PORT'             |
 | ISLAND_MONGO_HOST             | string  | 'mongodb://mongodb:27017' |                                                                   | 'MONGO_HOST'             |
+| ISLAND_RPC_DISTRIB_SIZE       | number  | 16                        |                                                                   |                          |
 
 
 ## Milestones

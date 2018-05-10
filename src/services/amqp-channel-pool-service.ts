@@ -21,6 +21,7 @@ export class AmqpChannelPoolService {
 
   private connection: amqp.Connection;
   private options: AmqpOptions;
+  private idleChannelLength: number = 0;
   private idleChannels: amqp.Channel[] = [];
   private initResolver: Bluebird.Resolver<void>;
 
@@ -52,14 +53,20 @@ export class AmqpChannelPoolService {
   }
 
   async purge(): Promise<void> {
+    this.idleChannelLength = 0;
+    this.idleChannels = [];
     return this.connection.close();
   }
 
   async acquireChannel(): Promise<amqp.Channel> {
-    // In race condition, the length of idleChannels can over the requested poolSize.
-    // But, we allow the little miss at here.
-    if (this.idleChannels.length < this.options.poolSize!) {
-      this.idleChannels.push(await this.createChannel());
+    if (this.idleChannelLength < this.options.poolSize!) {
+      ++this.idleChannelLength;
+      try {
+        this.idleChannels.push(await this.createChannel());
+      } catch (e) {
+        --this.idleChannelLength;
+        throw e;
+      }
     }
     return _.sample(this.idleChannels)!;
   }

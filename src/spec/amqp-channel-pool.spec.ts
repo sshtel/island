@@ -6,7 +6,8 @@ describe('AmqpChannelPool', () => {
 
   beforeEach(spec(async () => {
     return amqpChannelPool.initialize({
-      url: process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672'
+      url: process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672',
+      poolSize: 3
     });
   }));
 
@@ -47,5 +48,16 @@ describe('AmqpChannelPool', () => {
       } catch (e) {}
     });
     expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+  }));
+
+  it('should not allow a miss in a race condition', spec(async () => {
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
+    await Promise.all([
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel()
+    ]);
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(3);
   }));
 });
