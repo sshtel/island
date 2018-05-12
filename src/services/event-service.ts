@@ -191,9 +191,9 @@ export class EventService {
     return Promise.resolve(channel.prefetch(prefetchCount || Environments.getEventPrefetch()))
       .then(() => channel.consume(queue, msg => {
         if (!msg) {
-          logger.error(`consume was canceled unexpectedly`);
+          logger.crit(`The event queue is canceled unexpectedly`);
           // TODO: handle unexpected cancel
-          return;
+          return this.shutdown();
         }
 
         if (msg.fields.routingKey === this.fanoutQ) {
@@ -301,5 +301,9 @@ export class EventService {
 
   private sendStatusJsonEvent(data: any) {
     return this.publishEvent(new StatusExport(data));
+  }
+
+  private shutdown() {
+    process.emit('SIGTERM');
   }
 }
