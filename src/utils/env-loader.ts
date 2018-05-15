@@ -86,10 +86,19 @@ function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
 
     switch (schema.type) {
       case 'boolean':
-        if (envVar.toLowerCase() === 'true') {
-          defaultValue = true;
-        } else if (envVar.toLowerCase() === 'false') {
-          defaultValue = false;
+        {
+          const lowerCase = envVar.toLowerCase();
+          switch (lowerCase) {
+            // for support tencent-island.(legacy codes)
+            case '1':
+            case 'true':
+              defaultValue = true;
+              break;
+            case '0':
+            case 'false':
+              defaultValue = false;
+              break;
+          }
         }
         break;
       case 'number':

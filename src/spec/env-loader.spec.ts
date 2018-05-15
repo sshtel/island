@@ -48,11 +48,20 @@ describe('Environment Loader', () => {
   });
 
   it('should sanitize boolean types', done => {
+    process.env.BOOLEAN_1 = '1';
+    process.env.BOOLEAN_0 = '0';
+    process.env.NO_BOOLEAN = '';
     class ProcessEnv {
       @env()
       public BOOLEAN_WITH_DEFAULT_TRUE: boolean = true;
       @env()
       public BOOLEAN_WITH_DEFAULT_FALSE: boolean = false;
+      @env()
+      public BOOLEAN_1: boolean;
+      @env()
+      public BOOLEAN_0: boolean;
+      @env({ required: false })
+      public NO_BOOLEAN: boolean;
 
       constructor() {
         LoadEnv(this);
@@ -62,6 +71,9 @@ describe('Environment Loader', () => {
     const pe = new ProcessEnv();
     expect(pe.BOOLEAN_WITH_DEFAULT_TRUE).toEqual(true);
     expect(pe.BOOLEAN_WITH_DEFAULT_FALSE).toEqual(false);
+    expect(pe.BOOLEAN_1).toEqual(true);
+    expect(pe.BOOLEAN_0).toEqual(false);
+    expect(pe.NO_BOOLEAN).toBeUndefined();
     done();
   });
 
