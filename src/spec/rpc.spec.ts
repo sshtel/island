@@ -8,7 +8,7 @@ process.env.STATUS_EXPORT_TIME_MS = '3000';
 
 import * as Bluebird from 'bluebird';
 import { StatusExporter } from 'island-status-exporter';
-// import * as fs from 'fs';
+import * as _ from 'lodash';
 
 import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
@@ -448,6 +448,49 @@ describe('RPC(isolated test)', () => {
     await rpcService.resumeAll();
     const res = await p;
     expect(res).toBe('hello world');
+  }));
+
+  it('should response as a flow when it got a delayed message', spec(async () => {
+    const r = rpcService as any;
+    const _consume = r._consume;
+    const _reply = r._reply;
+    // tslint:disable-next-line
+    r._consume = function (key, handler, noAck): any {
+      return _consume.call(this, key, msg => {
+        msg.properties.timestamp = +new Date() - 1000;
+        return handler(msg);
+      }, noAck);
+    };
+    // tslint:disable-next-line
+    r._reply = function (replyTo, value, options) {
+      expect(options.headers.properties.extra.flow).toBe(true);
+      return _reply.call(this, replyTo, value, options);
+    };
+
+    await rpcService.register('testTest', async msg => msg, 'rpc');
+    await rpcService.listen();
+    await rpcService.invoke<string, string>('testTest', 'hi');
+  }));
+
+  it('should not use the queue which have got flow', spec(async () => {
+    const r = rpcService as any;
+    const _consume = r._consume;
+    // tslint:disable-next-line
+    r._consume = function (key, handler, noAck): any {
+      return _consume.call(this, key, msg => {
+        msg.properties.timestamp = +new Date() - 1000;
+        return handler(msg);
+      }, noAck);
+    };
+
+    await rpcService.register('testTest', async msg => msg, 'rpc');
+    await rpcService.listen();
+    await rpcService.invoke<string, string>('testTest', 'hi');
+
+    const now = +new Date();
+    const routingKey = _.findIndex(r.queuesAvailableSince, d => now < d);
+    const frequency = _.countBy(_.range(1000).map(o => r.makeRoutingKey()));
+    expect(frequency[routingKey]).not.toBeDefined();
   }));
 });
 

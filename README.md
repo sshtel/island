@@ -172,6 +172,7 @@ $ RABBITMQ_HOST=localhost npm test
 | ISLAND_REDIS_PORT             | number  | 6379                      |                                                                   | 'REDIS_PORT'             |
 | ISLAND_MONGO_HOST             | string  | 'mongodb://mongodb:27017' |                                                                   | 'MONGO_HOST'             |
 | ISLAND_RPC_DISTRIB_SIZE       | number  | 16                        |                                                                   |                          |
+| ISLAND_FLOWMODE_DELAY         | number  | 10000                     |                                                                   |                          |
 
 
 ## Milestones

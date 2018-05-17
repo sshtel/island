@@ -133,6 +133,9 @@ export class IslandEnvironments {
   @env()
   public ISLAND_RPC_DISTRIB_SIZE: number = 16;
 
+  @env()
+  public ISLAND_FLOWMODE_DELAY: number = 10000;
+
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
 
@@ -245,6 +248,10 @@ export class IslandEnvironments {
 
   public getRpcDistribSize(): number {
     return this.ISLAND_RPC_DISTRIB_SIZE;
+  }
+
+  public getFlowModeDelay(): number {
+    return this.ISLAND_FLOWMODE_DELAY;
   }
 }
 
