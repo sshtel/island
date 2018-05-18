@@ -9,7 +9,7 @@ export function sanitize(subschema, target) {
   if (!subschema) return target;
   translateSchemaType(subschema);
   const result = inspector.sanitize(subschema, target);
-  logger.debug('sanitized: %o', result.data);
+  logger.debug(`sanitized: ${result.data}`);
   return result.data;
 }
 
