@@ -545,7 +545,7 @@ export default class RPCService {
       }
       const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
       const { replyTo, headers, correlationId, timestamp } = msg.properties;
-      if (!replyTo) throw ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC;
+      if (!replyTo) throw new FatalError(ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC);
 
       const tattoo = headers && headers.tattoo;
       const extra = headers && headers.extra || {};
