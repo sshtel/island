@@ -134,6 +134,14 @@ export class IslandEnvironments {
   public ISLAND_RPC_DISTRIB_SIZE: number = 16;
 
   @env()
+  public ISLAND_USE_CIRCUIT_BREAK: boolean = false;
+  @env()
+  public ISLAND_CIRCUIT_BREAK_TIME_MS: number = 60 * 1000;
+  @env()
+  public ISLAND_CIRCUIT_BREAK_FAILRATE_THRESHOLD: number = 0.2;
+  @env()
+  public ISLAND_CIRCUIT_BREAK_REQUEST_THRESHOLD: number = 10;
+  @env()
   public ISLAND_FLOWMODE_DELAY: number = 10000;
 
   // @env()

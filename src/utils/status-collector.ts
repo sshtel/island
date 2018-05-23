@@ -10,12 +10,16 @@ import { Environments } from '../utils/environments';
 import { logger } from '../utils/logger';
 
 export const STATUS_EXPORT: boolean = Environments.isStatusExport();
-export const STATUS_EXPORT_TIME_MS: number = Environments.getStatusExportTimeMs();
+export const STATUS_EXPORT_TIME_MS: number = Environments.ISLAND_STATUS_EXPORT_TIME_MS; // 10 * 1000
 const STATUS_FILE_NAME: string = Environments.getStatusFileName()!;
 const STATUS_EXPORT_TYPE: string = Environments.getStatusExportType();
 const HOST_NAME: string = Environments.getHostName()!;
 const SERVICE_NAME: string = Environments.getServiceName()!;
-const CIRCUIT_BREAK_THRESHOLD: number = 0.2;
+
+const CIRCUIT_BREAK_TIME_MS: number = Environments.ISLAND_CIRCUIT_BREAK_TIME_MS;
+const MIN_REQUEST_THRESHOLD: number = Environments.ISLAND_CIRCUIT_BREAK_REQUEST_THRESHOLD;
+const CIRCUIT_BREAK_THRESHOLD: number = Environments.ISLAND_CIRCUIT_BREAK_FAILRATE_THRESHOLD;
+
 const processUptime: Date = new Date();
 // const SAVE_FILE_NAME: string = '';
 
@@ -37,13 +41,13 @@ export interface Message {
   properties: amqp.Options.Publish;
 }
 
-export interface RequestStatistics {
-  onGoingRequestCount: number;
+interface RequestStatistics {
   requestCount: number;
   executedCount: number;
   totalReceivedTime: number;
   totalExecutionTime: number;
   totalErrorTime: number;
+  lastErrorCounts: { reqCount: number, errCount: number }[];
 }
 
 export interface CollectOptions {
@@ -54,22 +58,51 @@ export interface CollectOptions {
   ignoreTimestamp?: boolean;
 }
 
-class RequestStatisticsMaker {
-  static create(): RequestStatistics {
+class RequestStatisticsHelper {
+  public static create(): RequestStatistics {
     return {
-      onGoingRequestCount: 0,
       requestCount: 0,
       executedCount: 0,
       totalReceivedTime: 0,
       totalExecutionTime: 0,
-      totalErrorTime: 0
+      totalErrorTime: 0,
+      lastErrorCounts: new Array(Math.max(1, Math.ceil(CIRCUIT_BREAK_TIME_MS / STATUS_EXPORT_TIME_MS)))
     } as RequestStatistics;
+  }
+
+  public static clearAndShift(stat: RequestStatistics) {
+    stat.lastErrorCounts.shift();
+    stat.lastErrorCounts.push({
+      reqCount: stat.requestCount,
+      errCount: stat.requestCount - stat.executedCount
+    });
+    stat.requestCount = 0;
+    stat.executedCount = 0;
+    stat.totalReceivedTime = 0;
+    stat.totalExecutionTime = 0;
+    stat.totalErrorTime = 0;
+  }
+
+  public static needCircuitBreak(stat: RequestStatistics): boolean {
+    let reqCount = 0;
+    let errCount = 0;
+    _.forEach(stat.lastErrorCounts, v => {
+      if (!v) return;
+      reqCount += v.reqCount;
+      errCount += v.errCount;
+    });
+
+    if (reqCount < MIN_REQUEST_THRESHOLD) return false;
+
+    const failedRate = errCount / reqCount;
+    return failedRate >= CIRCUIT_BREAK_THRESHOLD;
   }
 }
 
 function setDecimalPoint(int: number): number {
   return Number(int.toFixed(2));
 }
+
 export class StatusCollector {
   private collectedData: { [type: string]: RequestStatistics } = {};
   private onGoingMap: Map<string, any> = new Map();
@@ -78,6 +111,7 @@ export class StatusCollector {
 
   public async saveStatus() {
     const calculated: CalculatedData = this.calculateMeasurementsByType();
+    this.clearAndShiftData();
     switch (STATUS_EXPORT_TYPE) {
       case 'FILE':
         return await StatusExporter.saveStatusJsonFile(calculated);
@@ -91,45 +125,89 @@ export class StatusCollector {
   // Note:
   // island.js 통해 받지 않는 요청('gateway의 restify', 'push의 socket') 또는 보낸 곳에서 시간값을 주지 않은 요청의 경우는 time 필드가 없다.
   public collectRequestAndReceivedTime(type: string, name: string, options?: CollectOptions): string {
-    const requestId = uuid.v1();
-    const reqTime = +new Date();
+    const requestId = options && options.requestId ? options.requestId : uuid.v1();
+    const req = { type, name, reqTime: +new Date(), recvTime: 0 };
 
-    const stat: RequestStatistics = this.getStat(type, name);
-    ++stat.requestCount;
+    if (options && !options.ignoreTimestamp
+        && options.msg && options.msg.properties && options.msg.properties.timestamp) {
+      const elapsedFromPublished = req.reqTime - options.msg.properties.timestamp;
 
-    if (!options || options.ignoreTimestamp) return requestId;
-
-    this.onGoingMap.set(requestId, { reqTime });
-
-    if (options.msg && options.msg.properties && options.msg.properties.timestamp) {
-      const elapsedFromPublished = reqTime - options.msg.properties.timestamp;
       if (elapsedFromPublished > 1000) {
         logger.warning('SLOW recv', name, elapsedFromPublished, options.shard);
       }
 
-      stat.totalReceivedTime += reqTime - options.msg.properties.timestamp;
+      req.recvTime = req.reqTime - options.msg.properties.timestamp;
     }
 
+    this.onGoingMap.set(requestId, req);
     return requestId;
   }
 
   public collectExecutedCountAndExecutedTime(type: string, name: string, options: CollectOptions) {
-    const stat: RequestStatistics = this.getStat(type, name);
-
-    if (!options.err) ++stat.executedCount;
-    if (!options.requestId) return;
+    if (!options.requestId) {
+      const stat: RequestStatistics = this.getStat(type, name);
+      ++stat.requestCount;
+      if (!options.err) ++stat.executedCount;
+      return;
+    }
 
     const reqCache = this.onGoingMap.get(options.requestId);
     if (!reqCache) return;
-
     this.onGoingMap.delete(options.requestId);
+
+    const stat: RequestStatistics = this.getStat(type, name);
+    ++stat.requestCount;
+    if (!options.err) ++stat.executedCount;
+
     const resTime = +new Date();
     const reqTime = reqCache.reqTime || resTime;
+    if (reqCache.recvTime) {
+      stat.totalReceivedTime += reqCache.recvTime;
+    }
     if (options.err) {
       stat.totalErrorTime += resTime - reqTime;
+      if (RequestStatisticsHelper.needCircuitBreak(stat)) {
+        logger.warning(`Too Many Failure on ${type} with fail-rate ${MIN_REQUEST_THRESHOLD}`);
+      }
     } else {
       stat.totalExecutionTime += resTime - reqTime;
     }
+  }
+
+  public calculateMeasurementsByType(): CalculatedData {
+    const measuringTime = +new Date() - this.startedAt;
+    const cd = _.clone(this.collectedData);
+
+    const result: CalculatedData = { processUptime, measurements: [] };
+    const parsedData = {};
+
+    _.forEach(cd, (stat: RequestStatistics, type: string) => {
+      parsedData[type] = parsedData[type] || {
+        type,
+        requestPerSeconds: 0,
+        executedPerSeconds: 0,
+        avgReceiveMessageTimeByMQ: 0,
+        avgExecutionTime: 0
+      };
+      parsedData[type].requestPerSeconds += stat.requestCount;
+      parsedData[type].executedPerSeconds += stat.executedCount;
+      parsedData[type].avgReceiveMessageTimeByMQ += stat.totalReceivedTime;
+      parsedData[type].avgExecutionTime += stat.totalExecutionTime;
+    });
+
+    result.measurements = [];
+
+    _.forEach(parsedData, (stat: any) => {
+      stat.avgReceiveMessageTimeByMQ = setDecimalPoint(stat.avgReceiveMessageTimeByMQ / stat.requestPerSeconds);
+      stat.avgExecutionTime = setDecimalPoint(stat.avgExecutionTime / stat.executedPerSeconds);
+      stat.requestPerSeconds = setDecimalPoint(stat.requestPerSeconds * 1000 / measuringTime);
+      stat.executedPerSeconds = setDecimalPoint(stat.executedPerSeconds * 1000 / measuringTime);
+
+      result.measurements = result.measurements || [];
+      result.measurements.push(stat);
+    });
+
+    return result;
   }
 
   public async sigInfo(type: string) {
@@ -140,24 +218,24 @@ export class StatusCollector {
     });
   }
 
-  public getOnGoingRequestCount(type: string): number {
-    let count = 0;
-    _.forEach(this.collectedData, (stat: RequestStatistics, name: string) => {
-      if (!name.startsWith(type + '@')) { return; }
-      count += stat.onGoingRequestCount;
+  public getOnGoingRequestCount(type?: string): number {
+    if (!type) return this.onGoingMap.size;
+    let onGoingRequestCount = 0;
+    this.onGoingMap.forEach((value: any) => {
+      if (value.type && value.type.startsWith(type)) {
+        onGoingRequestCount += 1;
+      }
     });
-    return count;
+    return onGoingRequestCount;
   }
 
-  public hasOngoingRequests(type: string): boolean {
+  public hasOngoingRequests(type?: string): boolean {
     return this.getOnGoingRequestCount(type) > 0;
   }
 
   public needCircuitBreak(type: string, name: string): boolean {
-    const typeName = [type, name].join('@');
-    const stat = this.collectedData[typeName] = this.collectedData[typeName] || RequestStatisticsMaker.create();
-    const failedRate = 1 - (stat.executedCount / (stat.requestCount - stat.onGoingRequestCount));
-    return failedRate > CIRCUIT_BREAK_THRESHOLD;
+    const stat = this.getStat(type, name);
+    return RequestStatisticsHelper.needCircuitBreak(stat);
   }
 
   private sendStatusJsonEvent(data: CalculatedData) {
@@ -169,51 +247,15 @@ export class StatusCollector {
 
   private getStat(type: string,  name: string): RequestStatistics {
     const typeName = [type, name].join('@');
-    this.collectedData[typeName] = this.collectedData[typeName] || RequestStatisticsMaker.create();
+    this.collectedData[typeName] = this.collectedData[typeName] || RequestStatisticsHelper.create();
     return this.collectedData[typeName];
   }
 
-  private clearData() {
-    this.collectedData = {};
+  private clearAndShiftData() {
+    _.forEach(this.collectedData, (stat: RequestStatistics) => {
+      RequestStatisticsHelper.clearAndShift(stat);
+    });
     this.startedAt = +new Date();
-  }
-
-  private calculateMeasurementsByType(): CalculatedData {
-    const measuringTime = +new Date() - this.startedAt;
-    const cd = _.clone(this.collectedData);
-
-    this.clearData();
-
-    const calculatedData: CalculatedData = { processUptime, measurements: [] };
-    const obj = [];
-
-    _.forEach(cd, (stat: RequestStatistics, type: string) => {
-      obj[type] = obj[type] || {
-        type,
-        requestPerSeconds: 0,
-        executedPerSeconds: 0,
-        avgReceiveMessageTimeByMQ: 0,
-        avgExecutionTime: 0
-      };
-      obj[type].requestPerSeconds += stat.requestCount;
-      obj[type].executedPerSeconds += stat.executedCount;
-      obj[type].avgReceiveMessageTimeByMQ += stat.totalReceivedTime;
-      obj[type].avgExecutionTime += stat.totalExecutionTime;
-    });
-
-    calculatedData.measurements = [];
-
-    _.forEach(obj, (stat: any) => {
-      stat.avgReceiveMessageTimeByMQ = setDecimalPoint(stat.avgReceiveMessageTimeByMQ / stat.requestPerSeconds);
-      stat.avgExecutionTime = setDecimalPoint(stat.avgExecutionTime / stat.executedPerSeconds);
-      stat.requestPerSeconds = setDecimalPoint(stat.requestPerSeconds / measuringTime);
-      stat.executedPerSeconds = setDecimalPoint(stat.executedPerSeconds / measuringTime);
-
-      calculatedData.measurements = calculatedData.measurements || [];
-      calculatedData.measurements.push(stat);
-    });
-
-    return calculatedData;
   }
 }
 

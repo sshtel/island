@@ -58,9 +58,6 @@ export class EventService {
   private subscribers: Subscriber[] = [];
   private serviceName: string;
   private hooks: { [key: string]: EventHook[] } = {};
-  private onGoingRequest: {
-      count: number, details: Map<string, number>
-    } = { count : 0, details : new Map() };
   private purging: Function | null = null;
   private consumerInfosMap: { [name: string]: IEventConsumerInfo } = {};
   private ignoreEventLogRegexp: RegExp | null = null;
@@ -103,7 +100,7 @@ export class EventService {
     }))
       .then((): Promise<any> => {
         this.subscribers = [];
-        if (this.onGoingRequest.count > 0) {
+        if (collector.getOnGoingRequestCount('event') > 0) {
           return new Promise((res, rej) => { this.purging = res; });
         }
         return Promise.resolve();
@@ -111,11 +108,7 @@ export class EventService {
   }
 
   public async sigInfo() {
-    logger.info(`Event Service onGoingRequestCount : ${this.onGoingRequest.count}`);
-    await this.onGoingRequest.details.forEach((v, k) => {
-      if (v < 1) return;
-      logger.info(`Event Service ${k} : ${v}`);
-    });
+    return await collector.sigInfo('event');
   }
 
   subscribeEvent<T extends Event<U>, U>(eventClass: new (args: U) => T,
@@ -193,17 +186,15 @@ export class EventService {
           return;
         }
         const requestId = collector.collectRequestAndReceivedTime('event', msg.fields.routingKey, { msg });
-        this.increaseRequest(msg.fields.routingKey, 1);
         Bluebird.resolve(this.handleMessage(msg))
-          .tap(() => collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId }))
           .catch(err => {
             this.sendErrorLog(err, msg);
             collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId, err } );
           })
           .finally(() => {
             channel.ack(msg);
-            this.increaseRequest(msg.fields.routingKey, -1);
-            if (this.purging && this.onGoingRequest.count < 1 ) {
+            collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId });
+            if (this.purging && collector.getOnGoingRequestCount('event') < 1 ) {
               this.purging();
             }
             // todo: fix me. we're doing ACK always even if promise rejected.
@@ -303,12 +294,6 @@ export class EventService {
     return this.channelPool.usingChannel(channel => {
       return Promise.resolve(channel.publish(exchange, routingKey, content, options));
     });
-  }
-
-  private increaseRequest(name: string, count: number) {
-    this.onGoingRequest.count += count;
-    const requestCount = (this.onGoingRequest.details.get(name) || 0) + count;
-    this.onGoingRequest.details.set(name, requestCount);
   }
 }
 

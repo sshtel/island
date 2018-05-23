@@ -103,9 +103,6 @@ export default class RPCService {
   private consumerChannelPool: AmqpChannelPoolService;
   private serviceName: string;
   private hooks: { [key: string]: RpcHook[] };
-  private onGoingRequest: {
-      count: number, details: Map<string, number>
-    } = { count : 0, details : new Map() };
   private purging: Function | null = null;
   private rpcEntities: RpcEntities = {};
   private queuesAvailableSince: number[] = _.range(Environments.getRpcDistribSize()).map(o => +new Date());
@@ -154,7 +151,7 @@ export default class RPCService {
     await this.unregisterAll();
 
     let precondition = Promise.resolve();
-    if (0 < this.onGoingRequest.count) {
+    if (0 < collector.getOnGoingRequestCount('rpc')) {
       precondition = new Promise<void>(res => this.purging = res);
     }
     await precondition;
@@ -166,11 +163,7 @@ export default class RPCService {
   }
 
   public async sigInfo() {
-    logger.info(`RPC Service onGoingRequestCount : ${this.onGoingRequest.count}`);
-    this.onGoingRequest.details.forEach((v, k) => {
-      if (v < 1) return;
-      logger.info(`RPC Service ${k} : ${v}`);
-    });
+    return await collector.sigInfo('rpc');
   }
 
   public registerHook(type: RpcHookType, hook: RpcHook) {
@@ -482,12 +475,6 @@ export default class RPCService {
     return Bluebird.reduce(this.hooks[hookType], (value, hook) => hook(value), value);
   }
 
-  private increaseRequest(name: string, count: number) {
-    this.onGoingRequest.count += count;
-    const requestCount = (this.onGoingRequest.details.get(name) || 0) + count;
-    this.onGoingRequest.details.set(name, requestCount);
-  }
-
   private async assertQueues(queues: string[]): Promise<void> {
     await this.consumerChannelPool.usingChannel(async channel => {
       await Promise.all(_.map(queues, async (queue: string) => {
@@ -555,7 +542,6 @@ export default class RPCService {
         const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
         const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
         try {
-          this.increaseRequest(rpcName, 1);
           await Bluebird.resolve()
             .then(()  => sanitizeAndValidate(parsed, rpcOptions))
             .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
@@ -564,7 +550,6 @@ export default class RPCService {
             .then(res => this.dohook('post', type, res))
             .then(res => sanitizeAndValidateResult(res, rpcOptions))
             .then(res => this.reply(replyTo, res, options))
-            .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId }))
             .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
             .timeout(Environments.ISLAND_RPC_EXEC_TIMEOUT_MS);
         } catch (err) {
@@ -578,13 +563,12 @@ export default class RPCService {
             .tap (err => this.logRpcError(err));
           throw err;
         } finally {
-          this.increaseRequest(rpcName, -1);
-          if (this.purging && this.onGoingRequest.count < 1) {
+          collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId });
+          if (this.purging && collector.getOnGoingRequestCount('rpc') < 1) {
             this.purging();
           }
         }
       });
     });
   }
-
 }
