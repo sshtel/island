@@ -123,3 +123,7 @@ export class PatternSubscriber extends Subscriber {
     return new RegExp(`^${regexPattern}$`);
   }
 }
+
+export interface SubscriptionOptions {
+  everyNodeListen?: boolean;
+}

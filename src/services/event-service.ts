@@ -2,11 +2,12 @@ import { cls } from 'island-loggers';
 
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
+import * as fs from 'fs';
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 
 import { Environments } from '../utils/environments';
-import { Events } from '../utils/event';
+import { DEFAULT_SUBSCRIPTIONS, Events } from '../utils/event';
 import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
 import { collector } from '../utils/status-collector';
@@ -22,7 +23,8 @@ import {
   EventSubscriber,
   Message,
   PatternSubscriber,
-  Subscriber
+  Subscriber,
+  SubscriptionOptions
 } from './event-subscriber';
 
 export type EventHook = (obj) => Promise<any>;
@@ -66,6 +68,7 @@ export class EventService {
     this.serviceName = serviceName;
     this.roundRobinQ = `event.${serviceName}`;
     this.fanoutQ = `event.${serviceName}.node.${uuid.v4()}`;
+    fs.writeFileSync('./event.proc', JSON.stringify({ status: 'initializing', queue: this.fanoutQ }));
   }
 
   async initialize(channelPool: AmqpChannelPoolService, consumerChannelPool?: AmqpChannelPoolService): Promise<any> {
@@ -75,11 +78,16 @@ export class EventService {
 
     this.channelPool = channelPool;
     this.consumerChannelPool = consumerChannelPool || channelPool;
-    return this.consumerChannelPool.usingChannel(channel => {
-      return channel.assertExchange(EventService.EXCHANGE_NAME, 'topic', { durable: true })
-        .then(() => channel.assertQueue(this.roundRobinQ, { durable: true, exclusive: false }))
-        .then(() => channel.assertQueue(this.fanoutQ, { exclusive: true, autoDelete: true }));
+    await this.consumerChannelPool.usingChannel(async channel => {
+      await channel.assertExchange(EventService.EXCHANGE_NAME, 'topic', { durable: true });
+      await channel.assertQueue(this.roundRobinQ, { durable: true, exclusive: false });
+      await channel.assertQueue(this.fanoutQ, { exclusive: true, autoDelete: true });
     });
+
+    await Bluebird.map(DEFAULT_SUBSCRIPTIONS, ({ eventClass, handler, options }) => {
+      return this.subscribeEvent(eventClass, handler.bind(this), options);
+    });
+    fs.writeFileSync('./event.proc', JSON.stringify({ status: 'initialized', queue: this.fanoutQ }));
   }
 
   async startConsume(): Promise<any> {
@@ -89,22 +97,21 @@ export class EventService {
       this.registerConsumer(channel, queue);
     });
     this.publishEvent(new Events.SystemNodeStarted({ name: this.fanoutQ, island: this.serviceName }));
+    fs.writeFileSync('./event.proc', JSON.stringify({ status: 'started', queue: this.fanoutQ }));
   }
 
   async purge(): Promise<any> {
+    fs.unlinkSync('./event.proc');
     this.hooks = {};
     if (!this.consumerInfosMap) return Promise.resolve();
-    return Promise.all(_.map(this.consumerInfosMap, (consumerInfo: IEventConsumerInfo) => {
+    await Promise.all(_.map(this.consumerInfosMap, (consumerInfo: IEventConsumerInfo) => {
       logger.info(`stop consuming : ${consumerInfo.queue}`);
       return consumerInfo.channel.cancel(consumerInfo.consumerTag);
-    }))
-      .then((): Promise<any> => {
-        this.subscribers = [];
-        if (collector.getOnGoingRequestCount('event') > 0) {
-          return new Promise((res, rej) => { this.purging = res; });
-        }
-        return Promise.resolve();
-      });
+    }));
+    this.subscribers = [];
+    if (collector.getOnGoingRequestCount('event') > 0) {
+      return new Promise((res, rej) => { this.purging = res; });
+    }
   }
 
   public async sigInfo() {
@@ -238,6 +245,9 @@ export class EventService {
     const tattoo = headers && headers.tattoo;
     const extra = headers && headers.extra || {};
     const content = await this.dohook(EventHookType.EVENT, JSON.parse(msg.content.toString('utf8'), reviver));
+    if (msg.fields.routingKey === this.fanoutQ) {
+      msg.fields.routingKey = 'system.diagnosis';
+    }
     const subscribers = this.subscribers.filter(subscriber => subscriber.isRoutingKeyMatched(msg.fields.routingKey));
     const promise = Bluebird.map(subscribers, subscriber => {
       const clsProperties = _.merge({ RequestTrackId: tattoo, Context: msg.fields.routingKey, Type: 'event' },
@@ -295,8 +305,4 @@ export class EventService {
       return Promise.resolve(channel.publish(exchange, routingKey, content, options));
     });
   }
-}
-
-export interface SubscriptionOptions {
-  everyNodeListen?: boolean;
 }

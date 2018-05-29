@@ -16,6 +16,9 @@
     "test": "gulp build && DEBUG=* ISLAND_LOGGER_LEVEL=crit jasmine",
     "coverage": "gulp coverage"
   },
+  "bin": {
+    "diag": "dist/utils/diag-cli.js"
+  },
   "dependencies": {
     "amqplib": "^0.4.2",
     "bluebird": "<3.0.0",

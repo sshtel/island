@@ -55,7 +55,7 @@ export class AmqpChannelPoolService {
   async purge(): Promise<void> {
     this.idleChannelLength = 0;
     this.idleChannels = [];
-    return this.connection.close();
+    return this.connection && this.connection.close();
   }
 
   async acquireChannel(): Promise<amqp.Channel> {
