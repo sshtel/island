@@ -152,7 +152,7 @@ export class EventService {
         protocol: 'EVENT',
         correlationId: uuid.v4()
       });
-    logger.debug(`publish ${event.key}`, event.args, options.headers.tattoo);
+    logger.debug(`publish ${event.key}`, JSON.stringify(event.args, null, 2), options.headers.tattoo);
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
         return this._publish(exchange, event.key, content, options);
