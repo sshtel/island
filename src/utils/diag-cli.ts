@@ -12,9 +12,9 @@ async function main(args) {
   const fileName = v4().split('-')[0] + '.txt';
   return usingChannel(fileName, async (channel: Channel) => {
     const proc = getProc();
-    if (proc.status === 'stopped') {
-      console.log('not started');
-      return;
+    if (proc.status !== 'started') {
+      console.log(`"${proc.status}"`);
+      return process.exit(1);
     }
     await sendToQueue(channel, proc.queue, { fileName, args });
     const response = await readResponse(fileName);
