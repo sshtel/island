@@ -1,17 +1,16 @@
 import * as Bluebird from 'bluebird';
 
 import AbstractController from '../controllers/abstract-controller';
-import { FatalError, ISLAND } from '../utils/error';
 import AbstractAdapter, { IAbstractAdapter } from './abstract-adapter';
 
 /**
  * IListenableAdapter
- * @interface
+ * @abstract class
  */
-export interface IListenableAdapter extends IAbstractAdapter {
+export abstract class IListenableAdapter extends IAbstractAdapter {
   // HACK: 모든 abstract adapter의 initialize가 호출 된 다음에 호출된다
-  postInitialize(): any | Promise<any>;
-  listen(): any | Promise<any>;
+  abstract postInitialize(): any | Promise<any>;
+  abstract listen(): any | Promise<any>;
 }
 
 /**
@@ -21,7 +20,7 @@ export interface IListenableAdapter extends IAbstractAdapter {
  * @extends AbstractAdapter
  * @implements IListenableAdapter
  */
-export default class ListenableAdapter<T, U> extends AbstractAdapter<T, U> implements IListenableAdapter {
+export default abstract class ListenableAdapter<T, U> extends AbstractAdapter<T, U> implements IListenableAdapter {
   private _controllersClasses: {new(...args: any[]): AbstractController<T>}[] = [];
   private _controllers: AbstractController<T>[] = [];
 
@@ -44,14 +43,6 @@ export default class ListenableAdapter<T, U> extends AbstractAdapter<T, U> imple
     }));
   }
 
-  /**
-   * @abstract
-   * @returns {Promise<void>}
-   */
-  public listen(): any | Promise<any> {
-    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
-  }
-
   public async destroy(): Promise<any> {
     await Promise.all(this._controllers.map(c => Bluebird.try(() => c.destroy())));
     await Promise.all(this._controllers.map(c => Bluebird.try(() => c.onDestroy())));
@@ -59,4 +50,10 @@ export default class ListenableAdapter<T, U> extends AbstractAdapter<T, U> imple
     this._controllersClasses = [];
     this._controllers = [];
   }
+
+  /**
+   * @abstract
+   * @returns {Promise<void>}
+   */
+  abstract listen(): any | Promise<any>;
 }

@@ -1,14 +1,14 @@
-import { FatalError, ISLAND } from '../utils/error';
+import { logger } from '../utils/logger';
 
 /**
  * IAbstractAdapter
- * @interface
+ * @abstract class
  */
-export interface IAbstractAdapter {
+export abstract class IAbstractAdapter {
   adaptee: any;
-  initialize(): any | Promise<any>;
-  destroy(): any | Promise<any>;
-  sigInfo(): any | Promise<void>;
+  abstract initialize(): any | Promise<any>;
+  abstract destroy(): any | Promise<any>;
+  abstract sigInfo(): any | Promise<void>;
 }
 
 /**
@@ -17,7 +17,7 @@ export interface IAbstractAdapter {
  * @class
  * @implements IAbstractAdapter
  */
-export default class AbstractAdapter<T, U> implements IAbstractAdapter {
+export default abstract class AbstractAdapter<T, U> extends IAbstractAdapter {
   protected _adaptee: T;
   protected _options: U | undefined;
 
@@ -25,18 +25,11 @@ export default class AbstractAdapter<T, U> implements IAbstractAdapter {
   protected get options(): U | undefined { return this._options; }
 
   constructor(options?: U) {
+    super();
     this._options = options;
   }
 
-  public initialize(): any | Promise<any> {
-    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
-  }
-
-  public destroy(): any | Promise<any> {
-    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
-  }
-
-  public async sigInfo(): Promise<void> {
-    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented error');
+  sigInfo() {
+    logger.warning(`Not implemented warning, for AbstractAdapter.sigInfo.`);
   }
 }
