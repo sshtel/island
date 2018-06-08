@@ -10,7 +10,7 @@ import Islet from './islet';
 export { Islet };
 
 // adapters
-export { default as AbstractAdapter } from './adapters/abstract-adapter';
+export { default as AbstractAdapter, IAbstractAdapter } from './adapters/abstract-adapter';
 export { default as ListenableAdapter } from './adapters/listenable-adapter';
 
 // adapters/impl
