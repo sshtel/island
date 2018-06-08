@@ -10,7 +10,6 @@ import * as Bluebird from 'bluebird';
 import { StatusExporter } from 'island-status-exporter';
 import * as _ from 'lodash';
 
-import { RpcOptions } from '../controllers/rpc-decorator';
 import paramSchemaInspector from '../middleware/schema.middleware';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rpc-service';
@@ -18,6 +17,7 @@ import { Environments } from '../utils/environments';
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
+import { RpcOptions } from '../utils/rpc-request';
 import { collector } from '../utils/status-collector';
 
 Environments.refreshEnvForDebug();

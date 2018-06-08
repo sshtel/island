@@ -1,23 +1,8 @@
 import * as _ from 'lodash';
+
 import { Environments } from '../utils/environments';
 import { FatalError, ISLAND } from '../utils/error';
-
-export interface RpcOptions {
-  version?: string;
-  schema?: RpcSchemaOptions;
-  developmentOnly?: boolean;
-}
-
-export interface RpcSchemaOptions {
-  query?: {
-    sanitization: any;
-    validation: any;
-  };
-  result?: {
-    sanitization: any;
-    validation: any;
-  };
-}
+import { RpcOptions } from '../utils/rpc-request';
 
 interface Rpc {
   name: string;

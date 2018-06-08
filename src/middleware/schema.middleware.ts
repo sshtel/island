@@ -1,6 +1,6 @@
-import { RpcRequest } from '../services/rpc-service';
 import { ISLAND, LogicError } from '../utils/error';
 import { logger } from '../utils/logger';
+import { RpcRequest } from '../utils/rpc-request';
 import translateSchemaType from './schema-types';
 
 import inspector = require('schema-inspector');

@@ -7,14 +7,13 @@ import * as _ from 'lodash';
 import * as os from 'os';
 import uuid = require('uuid');
 
-import { RpcOptions } from '../controllers/rpc-decorator';
 import { sanitize, validate } from '../middleware/schema.middleware';
 import { Environments } from '../utils/environments';
 import { AbstractError, FatalError, ISLAND, LogicError, mergeIslandJsError } from '../utils/error';
 import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
 import { RouteLogger } from '../utils/route-logger';
-import { RpcRequest } from '../utils/rpc-request';
+import { RpcOptions, RpcRequest } from '../utils/rpc-request';
 import { IRpcResponse, RpcResponse } from '../utils/rpc-response';
 import { collector } from '../utils/status-collector';
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
