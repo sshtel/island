@@ -21,7 +21,7 @@ const injectable = (target: any) => {
 };
 
 class KernelWrapper {
-  private kernel = new inversify.Kernel();
+  private kernel = new inversify.Container();
 
   bindClass(aClass: any) {
     inversify.decorate(injectable, aClass);

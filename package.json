@@ -38,7 +38,7 @@
     "msgpack5": "^3.4.0",
     "qs": "^6.2.1",
     "redis": "^2.6.2",
-    "redis-bluebird": "^1.0.0",
+    "redis-bluebird": "next",
     "reflect-metadata": "^0.1.8",
     "restify": "^4.1.1",
     "schema-inspector": "^1.6.6",
