@@ -1,8 +1,10 @@
 import * as _ from 'lodash';
 
 import { IAbstractAdapter } from './adapters/abstract-adapter';
+import { AmqpChannelPoolAdapter } from './adapters/impl/amqp-channel-pool-adapter';
 import ListenableAdapter, { IListenableAdapter } from './adapters/listenable-adapter';
 import { bindImpliedServices } from './utils/di-bind';
+import { Environments } from './utils/environments';
 import { FatalError, ISLAND } from './utils/error';
 import { logger } from './utils/logger';
 import { collector, STATUS_EXPORT, STATUS_EXPORT_TIME_MS } from './utils/status-collector';
@@ -76,6 +78,30 @@ export default class Islet {
   }
 
   /**
+   * Register Message Queue Adapter And Controllers
+   * @param {string} name
+   * @param {string} url
+   * @param {typeof Adapter} typeOfAdapter
+   * @param {AbstractController} controllers
+   */
+  public registerMq(name: string, url: string,
+                    typeOfAdapter: { new (...args: any[]): IAbstractAdapter }, ...controllers): void {
+    url = this.ensureSampledHost(url);
+    const poolSize = Environments.ISLAND_RABBITMQ_POOLSIZE;
+    const noReviver = Environments.ISLAND_NO_REVIVER;
+    const amqpChannelPoolAdapter = new AmqpChannelPoolAdapter({ url, poolSize, name });
+    this.registerAdapter(`amqp${_.capitalize(name)}ChannelPool`, amqpChannelPoolAdapter);
+    const consumerAmqpChannelPoolAdapter = new AmqpChannelPoolAdapter({
+       url, poolSize, name: `consumer${_.capitalize(name)}`
+    });
+    this.registerAdapter(`consumeAmqp${_.capitalize(name)}ChannelPool`, consumerAmqpChannelPoolAdapter);
+    const adapter = new typeOfAdapter({
+      amqpChannelPoolAdapter, consumerAmqpChannelPoolAdapter, serviceName: Environments.ISLAND_SERVICE_NAME, noReviver
+    });
+    this.registerAdapterAndControllers(name, adapter, ...controllers);
+  }
+
+  /**
    * @param {string} name
    * @returns {typeof Adapter}
    */
@@ -97,6 +123,19 @@ export default class Islet {
     logger.warning(`island service shut down`);
   }
   protected onStarted() {}
+
+  /**
+   * Get Random Sampled Host name from given comma-seperated string
+   */
+  protected ensureSampledHost(first: string): string {
+    const urls = (first || Environments.ISLAND_RABBITMQ_HOST).split(',').map(u => u.trim());
+    return _.sample<string>(urls.filter(Boolean))!;
+  }
+
+  protected registerAdapterAndControllers(adapterName: string, adapter: any, ...controllers) {
+    controllers.forEach(c => adapter.registerController(c));
+    this.registerAdapter(adapterName, adapter);
+  }
 
   /**
    * @returns {Promise<void>}
