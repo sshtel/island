@@ -81,10 +81,11 @@ export default class Islet {
    * Register Message Queue Adapter And Controllers
    * @param {string} name
    * @param {string} url
+   * @param {string} serviceName
    * @param {typeof Adapter} typeOfAdapter
    * @param {AbstractController} controllers
    */
-  public registerMq(name: string, url: string,
+  public registerMq(name: string, url: string, serviceName: string,
                     typeOfAdapter: { new (...args: any[]): IAbstractAdapter }, ...controllers): void {
     url = this.ensureSampledHost(url);
     const poolSize = Environments.ISLAND_RABBITMQ_POOLSIZE;
@@ -96,7 +97,7 @@ export default class Islet {
     });
     this.registerAdapter(`consumeAmqp${_.capitalize(name)}ChannelPool`, consumerAmqpChannelPoolAdapter);
     const adapter = new typeOfAdapter({
-      amqpChannelPoolAdapter, consumerAmqpChannelPoolAdapter, serviceName: Environments.ISLAND_SERVICE_NAME, noReviver
+      amqpChannelPoolAdapter, consumerAmqpChannelPoolAdapter, serviceName, noReviver
     });
     this.registerAdapterAndControllers(name, adapter, ...controllers);
   }
