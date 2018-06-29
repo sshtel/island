@@ -95,6 +95,7 @@ export {
   AbstractFatalError,
   AbstractLogicError,
   ErrorLevel,
+  ISLAND,
   IslandLevel,
   toCode,
   setIslandCode
