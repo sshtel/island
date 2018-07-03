@@ -97,7 +97,7 @@ export class RpcResponse {
         result = new AbstractFatalError(islandCode, islandLevel, errorCode, err.reason);
         break;
       default:
-        result = new AbstractEtcError(islandCode, islandLevel, 1, err.reason);
+        result = new AbstractEtcError(islandCode, islandLevel, err.code % 10000 || 1, err.reason);
         result.name = err.name;
     }
 
