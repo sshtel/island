@@ -1,10 +1,5 @@
 // tslint:disable-next-line
 require('source-map-support').install();
-process.env.ISLAND_RPC_EXEC_TIMEOUT_MS = '1000';
-process.env.ISLAND_RPC_WAIT_TIMEOUT_MS = '3000';
-process.env.ISLAND_SERVICE_LOAD_TIME_MS = '1000';
-process.env.STATUS_EXPORT = 'true';
-process.env.STATUS_EXPORT_TIME_MS = '3000';
 
 import * as Bluebird from 'bluebird';
 import { StatusExporter } from 'island-status-exporter';
@@ -12,7 +7,7 @@ import * as _ from 'lodash';
 
 import paramSchemaInspector from '../middleware/schema.middleware';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
-import RPCService, { RpcHookType, RpcRequest, RpcResponse } from '../services/rpc-service';
+import { RpcHookType, RpcRequest, RpcResponse, RPCService } from '../services/rpc-service';
 import { Environments } from '../utils/environments';
 import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
@@ -49,6 +44,28 @@ describe('RpcResponse', () => {
 describe('RPC(isolated test)', () => {
   const rpcService = new RPCService('haha');
   const amqpChannelPool = new AmqpChannelPoolService();
+  const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
+  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
+  const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+
+  beforeAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_STATUS_EXPORT = true;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+  }));
+
+  afterAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+  }));
+
   beforeEach(spec(async () => {
     const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
     await amqpChannelPool.initialize({ url });
@@ -492,6 +509,28 @@ describe('RPC(isolated test)', () => {
 });
 
 describe('RPC with reviver', async () => {
+  const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
+  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
+  const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+
+  beforeAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_STATUS_EXPORT = true;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+  }));
+
+  afterAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+  }));
+
   const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
   const rpcService = new RPCService('haha');
   const amqpChannelPool = new AmqpChannelPoolService();
@@ -527,6 +566,28 @@ describe('RPC with reviver', async () => {
 });
 
 describe('RPC-hook', () => {
+  const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
+  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
+  const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+
+  beforeAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_STATUS_EXPORT = true;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+  }));
+
+  afterAll(spec(async () => {
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
+    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
+    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
+    Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+  }));
+
   const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
   const rpcService = new RPCService('haha');
   const amqpChannelPool = new AmqpChannelPoolService();

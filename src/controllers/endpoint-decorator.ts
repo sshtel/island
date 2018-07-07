@@ -564,7 +564,7 @@ export namespace validate {
 
   export function validate(target: ValidatePropertyTypes |
     { [key: string]: ValidatePropertyTypes } |
-    [ValidatePropertyTypes]): any {
+    [ValidatePropertyTypes]): {[key: string]: any} {
     if (global.Array.isArray(target)) {
       // 여기에서 체크된 Array는 option이 없는 경우이다.
       return {

@@ -1,9 +1,23 @@
 import { Channel } from 'amqplib';
 import * as Bluebird from 'bluebird';
 import * as fs from 'fs';
+import * as _ from 'lodash';
 
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { Environments } from './environments';
+import { RpcSchemaOptions } from './rpc-request';
+
+export interface DiagRpcArgs {
+  name?: string;
+  query?: any;
+  plainQuery?: string;
+  opts?: {
+    stack?: boolean,
+    remote?: boolean
+  };
+}
+
+// internal
 
 async function getAmqpChannelPoolService(fileName: string) {
   fs.writeFileSync(fileName, '');
@@ -20,15 +34,23 @@ async function getAmqpChannelPoolService(fileName: string) {
     });
 }
 
+async function sendToRpcQueue(chan: Channel, queueName: string, fileName: string, cmd: string, args?: DiagRpcArgs) {
+  return chan.sendToQueue(queueName, new Buffer(JSON.stringify({
+    fileName, cmd, args
+  })), { correlationId: 'system.diagnosis' });
+}
+
+// exported
+
 export async function usingChannel(fileName: string, func) {
   return Bluebird.using(getAmqpChannelPoolService(fileName), async (service: AmqpChannelPoolService) => {
     return service.usingChannel(func);
   });
 }
 
-export function getProc(): { queue: string, status: string } {
+export function getProc(type: string = 'event'): { queue: string, status: string } {
   try {
-    const procTxt = fs.readFileSync('./event.proc', 'utf-8');
+    const procTxt = fs.readFileSync(`./${type}.proc`, 'utf-8');
     return JSON.parse(procTxt);
   } catch (e) {
     return { queue: '', status: 'stopped' };
@@ -37,6 +59,37 @@ export function getProc(): { queue: string, status: string } {
 
 export async function sendToQueue(chan: Channel, queueName: string, payload: any) {
   return chan.sendToQueue(queueName, new Buffer(JSON.stringify(payload)));
+}
+
+export function parseRpcList(response) {
+  return _.map(JSON.parse(response.message), (rpc: RpcSchemaOptions, name) => {
+    const validation = _.get(rpc, 'rpcOptions.schema.query.validation');
+    let schema;
+    if (validation) {
+      if (validation.type === 'object') {
+        schema = _.map(validation.properties, (property, name) => {
+          return [name, property.type].join(':');
+        }).join(', ');
+      } else {
+        schema = validation.type;
+      }
+    }
+    return [name, schema].filter(Boolean).join(' - ');
+  });
+}
+
+export async function diagRpcSub(chan: Channel, queueName: string, fileName: string, subCommand: string) {
+  return sendToRpcQueue(chan, queueName, fileName, 'rpc:' + subCommand, { opts: { stack: true }});
+}
+
+export async function diagRpc(chan: Channel, queueName: string, fileName: string, rpcName: string,
+                              rpcArgs?: DiagRpcArgs) {
+  rpcArgs = rpcArgs || {};
+  rpcArgs.name = rpcName;
+  if (rpcArgs.plainQuery) {
+    rpcArgs.query = JSON.parse(rpcArgs.plainQuery);
+  }
+  return sendToRpcQueue(chan, queueName, fileName, 'rpc', rpcArgs);
 }
 
 export async function readResponse(fileName: string): Promise<any> {

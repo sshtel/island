@@ -1,4 +1,4 @@
-import RPCService, { RpcHook, RpcHookType } from '../../services/rpc-service';
+import { RpcHook, RpcHookType, RPCService } from '../../services/rpc-service';
 import { FatalError, ISLAND } from '../../utils/error';
 import ListenableAdapter from '../listenable-adapter';
 import { AmqpChannelPoolAdapter } from './amqp-channel-pool-adapter';

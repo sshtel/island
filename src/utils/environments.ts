@@ -105,13 +105,13 @@ export class IslandEnvironments {
   @env({ legacyKeys: ['RABBITMQ_HOST'] })
   public ISLAND_RABBITMQ_HOST: string = 'amqp://rabbitmq:5672';
 
-  @env({ required: false, legacyKeys: ['RABBITMQ_PUSH_HOST'] })
+  @env({ required: false, legacyKeys: ['RABBITMQ_PUSH_HOST', 'ISLAND_RABBITMQ_HOST', 'RABBITMQ_HOST'] })
   public ISLAND_RABBITMQ_PUSH_HOST: string;
 
-  @env({ required: false, legacyKeys: ['RABBITMQ_RPC_HOST'] })
+  @env({ required: false, legacyKeys: ['RABBITMQ_RPC_HOST', 'ISLAND_RABBITMQ_HOST', 'RABBITMQ_HOST'] })
   public ISLAND_RABBITMQ_RPC_HOST: string;
 
-  @env({ required: false, legacyKeys: ['RABBITMQ_EVENT_HOST'] })
+  @env({ required: false, legacyKeys: ['RABBITMQ_EVENT_HOST', 'ISLAND_RABBITMQ_HOST', 'RABBITMQ_HOST'] })
   public ISLAND_RABBITMQ_EVENT_HOST: string;
 
   @env({ legacyKeys: ['RABBITMQ_POOLSIZE'] })
