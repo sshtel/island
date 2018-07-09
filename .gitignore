@@ -34,3 +34,8 @@ node_modules
 
 # Users Environment Variables
 .lock-wscript
+
+
+# island.js
+*.proc
+

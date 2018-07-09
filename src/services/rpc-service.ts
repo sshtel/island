@@ -3,11 +3,13 @@ import { cls } from 'island-loggers';
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
 import deprecated from 'deprecated-decorator';
+import * as fs from 'fs';
 import * as _ from 'lodash';
 import * as os from 'os';
 import uuid = require('uuid');
 
 import { sanitize, validate } from '../middleware/schema.middleware';
+import { DiagRpcArgs } from '../utils/diag';
 import { Environments } from '../utils/environments';
 import { AbstractError, FatalError, ISLAND, LogicError, mergeIslandJsError } from '../utils/error';
 import { logger } from '../utils/logger';
@@ -92,7 +94,12 @@ function nackWithDelay(channel, msg) {
 
 type DeferredResponse = { resolve: (msg: Message) => any, reject: (e: Error) => any };
 
-export default class RPCService {
+interface SystemDiagnosisPayload {
+ fileName: string;
+  cmd: string;
+  args: DiagRpcArgs;
+}
+export class RPCService {
   private requestConsumerInfo: IConsumerInfo[] = [];
   private responseQueueName: string;
   private waitingResponse: { [corrId: string]: DeferredResponse } = {};
@@ -109,6 +116,8 @@ export default class RPCService {
   constructor(serviceName?: string) {
     this.serviceName = serviceName || 'unknown';
     this.hooks = {};
+    this.responseQueueName = this.makeResponseQueueName();
+    fs.writeFileSync('./rpc.proc', JSON.stringify({ status: 'initializing', queue: this.responseQueueName }));
   }
 
   public async initialize(channelPool: AmqpChannelPoolService, opts?: InitializeOptions): Promise<any> {
@@ -123,7 +132,6 @@ export default class RPCService {
     } else {
       this.consumerChannelPool = channelPool;
     }
-    this.responseQueueName = this.makeResponseQueueName();
     logger.info(`consuming ${this.responseQueueName}`);
 
     this.channelPool = channelPool;
@@ -136,6 +144,7 @@ export default class RPCService {
     );
 
     await this.consumeForResponse();
+    fs.writeFileSync('./rpc.proc', JSON.stringify({ status: 'initialized', queue: this.responseQueueName }));
   }
 
   @deprecated()
@@ -146,6 +155,7 @@ export default class RPCService {
   }
 
   public async purge() {
+    try { fs.unlinkSync('./rpc.proc'); } catch (_e) {}
     logger.info('stop serving');
     await this.unregisterAll();
 
@@ -183,6 +193,7 @@ export default class RPCService {
     await this.assertExchanges(this.rpcEntities);
     await this.bindQueuesToExchanges(queues, this.rpcEntities);
     await this.startConsumingQueues(queues);
+    fs.writeFileSync('./rpc.proc', JSON.stringify({ status: 'started', queue: this.responseQueueName }));
   }
 
   @deprecated()
@@ -333,6 +344,9 @@ export default class RPCService {
         logger.notice('Got a response with no correlationId');
         return;
       }
+      if (correlationId === 'system.diagnosis') {
+        return this.onSystemDiagnosis(msg);
+      }
       if (this.timedOut[correlationId]) {
         const name = this.timedOut[correlationId];
         this.timedOut = _.omit(this.timedOut, correlationId);
@@ -349,6 +363,55 @@ export default class RPCService {
       this.waitingResponse = _.omit(this.waitingResponse, correlationId);
       return waiting.resolve(msg);
     }, Environments.ISLAND_RPC_RES_NOACK);
+  }
+
+  private async onSystemDiagnosis(msg: Message) {
+    const body: SystemDiagnosisPayload = JSON.parse(msg.content.toString());
+    const response = await this.dispatchDiagnosis(body);
+    response.timestamp = +new Date();
+    fs.appendFile(
+      body.fileName,
+      JSON.stringify({
+        timestamp: +new Date(),
+        message: JSON.stringify(response.message),
+        error: JSON.stringify(response.error) }),
+      err => {
+        err && console.error(err);
+      }
+    );
+  }
+
+  private async dispatchDiagnosis(body: SystemDiagnosisPayload):
+      Promise<{ timestamp?: number, message?: any, error?: any }> {
+    const subCommand = body.cmd.split(':')[1];
+    if (!subCommand) {
+      return this.onDiagnosisRpc(body);
+    }
+    switch (subCommand) {
+      case 'list':
+        return { message: this.rpcEntities };
+    }
+    return { message: '' };
+  }
+
+  private async onDiagnosisRpc(body: SystemDiagnosisPayload) {
+    const args = body.args;
+    try {
+      if (!this.rpcEntities[args.name!] && !_.get(args, 'opts.remote')) {
+        throw new Error('no such RPC - ' + args.name);
+      }
+      return {
+        message: await this.invoke(args.name!, args.query || {})
+      };
+    } catch (e) {
+      const error: any = {
+        message: e.message
+      };
+      if (_.get(args, 'opts.stack')) {
+        error.stack = e.stack;
+      }
+      return { error };
+    }
   }
 
   private waitResponse(corrId: string, handleResponse: (msg: Message) => any) {
