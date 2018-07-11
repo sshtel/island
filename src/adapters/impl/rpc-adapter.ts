@@ -7,7 +7,7 @@ export interface RPCAdapterOptions {
   amqpChannelPoolAdapter: AmqpChannelPoolAdapter;
   consumerAmqpChannelPoolAdapter?: AmqpChannelPoolAdapter;
   serviceName: string;
-  noReviver?: boolean;
+  useReviver?: boolean;
 }
 
 export default class RPCAdapter extends ListenableAdapter<RPCService, RPCAdapterOptions> {
@@ -33,7 +33,7 @@ export default class RPCAdapter extends ListenableAdapter<RPCService, RPCAdapter
       this._adaptee.registerHook(hook.type, hook.hook);
     });
     return this._adaptee.initialize(amqpChannelPoolService, {
-      noReviver: this.options.noReviver,
+      useReviver: this.options.useReviver,
       consumerAmqpChannelPool: consumerChannelPool
     });
   }
