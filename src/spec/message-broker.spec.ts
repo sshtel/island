@@ -3,7 +3,7 @@ import Promise = require('bluebird');
 
 import MessageBrokerService from '../services/message-broker-service';
 
-describe('msg-broker test:', () => {
+xdescribe('msg-broker test:', () => {
   let brokerService1: MessageBrokerService;
   let brokerService2: MessageBrokerService;
   let connection: amqp.Connection;
