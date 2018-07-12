@@ -56,6 +56,9 @@ export class IslandEnvironments {
   @env({ legacyKeys: ['NO_REVIVER'] })
   public ISLAND_NO_REVIVER: boolean = false;
 
+  @env({ legacyKeys: ['USE_REVIVER'] })
+  public ISLAND_USE_REVIVER: boolean = false;
+
   // If it is true, use island-status-exporter
   @env({ legacyKeys: ['STATUS_EXPORT'] })
   public ISLAND_STATUS_EXPORT: boolean = false;
@@ -194,8 +197,8 @@ export class IslandEnvironments {
     return this.ISLAND_RPC_RES_NOACK;
   }
 
-  public isNoReviver(): boolean {
-    return this.ISLAND_NO_REVIVER;
+  public isUseReviver(): boolean {
+    return this.ISLAND_USE_REVIVER;
   }
 
   public getIslandLoggerLevel(): LoggerLevel {

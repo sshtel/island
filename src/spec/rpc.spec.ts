@@ -508,10 +508,10 @@ describe('RPC(isolated test)', () => {
   }));
 });
 
-describe('RPC with reviver', async () => {
+describe('RPC excluded reviver', async () => {
   const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
   const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
-  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_SERVICE_LOAD_TIME_MS = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
   const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
   const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
 
@@ -552,16 +552,22 @@ describe('RPC with reviver', async () => {
     await amqpChannelPool.purge();
   }));
 
-  it('should convert an ISODate string to Date', spec(async () => {
-    const res = await invokeTest();
-    expect(typeof res).toEqual('object');
-    expect(res instanceof Date).toBeTruthy();
-  }));
-
-  it('should keep an ISODate string as string with noReviver', spec(async () => {
-    const res = await invokeTest({ noReviver: true });
+  it('should keep an ISODate string as string', spec(async () => {
+    const res = await invokeTest({});
     expect(typeof res).toEqual('string');
     expect(res instanceof Date).toBeFalsy();
+  }));
+
+  it('should keep an ISODate string as string without reviver', spec(async () => {
+    const res = await invokeTest({ useReviver: false });
+    expect(typeof res).toEqual('string');
+    expect(res instanceof Date).toBeFalsy();
+  }));
+
+  it('should convert an ISODate string to Date with reviver', spec(async () => {
+    const res = await invokeTest({ useReviver: true });
+    expect(typeof res).toEqual('object');
+    expect(res instanceof Date).toBeTruthy();
   }));
 });
 

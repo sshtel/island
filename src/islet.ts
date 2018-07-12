@@ -89,7 +89,7 @@ export default class Islet {
                     typeOfAdapter: { new (...args: any[]): IAbstractAdapter }, ...controllers): void {
     url = this.ensureSampledHost(url);
     const poolSize = Environments.ISLAND_RABBITMQ_POOLSIZE;
-    const noReviver = Environments.ISLAND_NO_REVIVER;
+    const useReviver = Environments.ISLAND_USE_REVIVER;
     const amqpChannelPoolAdapter = new AmqpChannelPoolAdapter({ url, poolSize, name });
     this.registerAdapter(`amqp${_.capitalize(name)}ChannelPool`, amqpChannelPoolAdapter);
     const consumerAmqpChannelPoolAdapter = new AmqpChannelPoolAdapter({
@@ -97,7 +97,7 @@ export default class Islet {
     });
     this.registerAdapter(`consumeAmqp${_.capitalize(name)}ChannelPool`, consumerAmqpChannelPoolAdapter);
     const adapter = new typeOfAdapter({
-      amqpChannelPoolAdapter, consumerAmqpChannelPoolAdapter, serviceName, noReviver
+      amqpChannelPoolAdapter, consumerAmqpChannelPoolAdapter, serviceName, useReviver
     });
     this.registerAdapterAndControllers(name, adapter, ...controllers);
   }
