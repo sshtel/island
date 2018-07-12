@@ -195,15 +195,25 @@ export class EventService {
           // TODO: handle unexpected cancel
           return;
         }
-        const requestId = collector.collectRequestAndReceivedTime('event', msg.fields.routingKey, { msg });
+
+        if (msg.fields.routingKey === this.fanoutQ) {
+          msg.fields.routingKey = 'system.diagnosis';
+        }
+
+        let routingKey = msg.fields.routingKey;
+        if (/^cron(\.s)*[\.0-9]*/.test(routingKey)) {
+          routingKey = routingKey.replace(/[\.0-9]*$/, '');
+        }
+
+        const requestId = collector.collectRequestAndReceivedTime('event', routingKey, { msg });
         Bluebird.resolve(this.handleMessage(msg))
           .catch(err => {
             this.sendErrorLog(err, msg);
-            collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId, err } );
+            collector.collectExecutedCountAndExecutedTime('event', routingKey, { requestId, err } );
           })
           .finally(() => {
             channel.ack(msg);
-            collector.collectExecutedCountAndExecutedTime('event', msg.fields.routingKey, { requestId });
+            collector.collectExecutedCountAndExecutedTime('event', routingKey, { requestId });
             if (this.purging && collector.getOnGoingRequestCount('event') < 1 ) {
               this.purging();
             }
@@ -248,9 +258,6 @@ export class EventService {
     const tattoo = headers && headers.tattoo;
     const extra = headers && headers.extra || {};
     const content = await this.dohook(EventHookType.EVENT, JSON.parse(msg.content.toString('utf8'), reviver));
-    if (msg.fields.routingKey === this.fanoutQ) {
-      msg.fields.routingKey = 'system.diagnosis';
-    }
     const subscribers = this.subscribers.filter(subscriber => subscriber.isRoutingKeyMatched(msg.fields.routingKey));
     const promise = Bluebird.map(subscribers, subscriber => {
       const clsProperties = _.merge({ RequestTrackId: tattoo, Context: msg.fields.routingKey, Type: 'event' },
