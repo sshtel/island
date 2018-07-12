@@ -59,7 +59,7 @@ export interface RpcEntities {
 }
 
 export interface InitializeOptions {
-  noReviver?: boolean;
+  useReviver?: boolean;
   consumerAmqpChannelPool?: AmqpChannelPoolService;
 }
 
@@ -121,10 +121,10 @@ export class RPCService {
   }
 
   public async initialize(channelPool: AmqpChannelPoolService, opts?: InitializeOptions): Promise<any> {
-    if (Environments.ISLAND_NO_REVIVER || opts && opts.noReviver) {
-      RpcResponse.reviver = undefined;
-    } else {
+    if (Environments.ISLAND_USE_REVIVER || opts && opts.useReviver) {
       RpcResponse.reviver = reviver;
+    } else {
+      RpcResponse.reviver = undefined;
     }
     if (opts && opts.consumerAmqpChannelPool) {
       this.consumerChannelPool = opts.consumerAmqpChannelPool;
