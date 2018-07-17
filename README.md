@@ -1,4 +1,4 @@
-# island v1.5
+# island.js
 
 An opinionated, full-stacked Microservices framework for [node](http://nodejs.org), powered by [TypeScript](https://github.com/microsoft/typescript).
 
@@ -41,23 +41,10 @@ island.Islet.run(HawaiiIslet);
 ```
 
 
-## Table of Contents
-
-  - [Installation](#installation)
-  - [Features](#features)
-  - [v1.0](#v1.0)
-  - [Building](#building)
-  - [Tests](#tests)
-  - [Environment Variables](#environment+variables)
-  - [Milestones](#milestones)
-  - [People](#people)
-  - [License](#license)
-
-
 ## Installation
 
 ```
-$ npm install island --save
+$ npm i island
 ```
 
 
@@ -72,32 +59,6 @@ $ npm install island --save
   - Track communications per each request
   - Chain contexts with UUID per each request
 
-## v1.2
- 
-### Changes
-
-  - Support to expand langid from property name for @validate @sanitize [#69](https://github.com/spearhead-ea/island/issues/68)
-  - Fix singleton bug [#64](https://github.com/spearhead-ea/island/pull/67)
-
-## v1.0
-
-### Changes
-
-  - `Loggers` is no longer a part of `island` -> [island-loggers](https://github.com/spearhead-ea/island-loggers) [#14](https://github.com/spearhead-ea/island/issues/14)
-  - `Di` is no longer a part of `island` -> [island-di](https://github.com/spearhead-ea/island-di) [#16](https://github.com/spearhead-ea/island/issues/16)
-  - `@endpoint` decorator now provides 4 more methods [#28](https://github.com/spearhead-ea/island/issues/28)
-    - `@endpoint('GET /test')` still works
-    - `@endpoint.get('/test')` - You can omit the GET method
-    - `@endpoint.post('/test')` - You can omit the POST method
-    - `@endpoint.put('/test')` - You can omit the PUT method
-    - `@endpoint.del('/test')` - You can omit the DEL method
-
-
-### Breaking Changes
-
-  - Require TypeScript@2.x
-    - `strictNullChecks`
-
 
 ## Building
 
@@ -105,21 +66,20 @@ In order to build the island, ensure that you have [Git](http://git-scm.com/down
 
 Clone a copy of the repo:
 
-```
+```bash
 $ git clone https://github.com/spearhead-ea/island.git
 ```
 
 Change to the island directory:
 
-```
+```bash
 $ cd island
 ```
 
-Install prerequisites and dev dependencies:
+Install dependencies and dev dependencies:
 
-```
-$ npm install -g gulp typescript
-$ npm install
+```bash
+$ npm i
 ```
 
 
@@ -128,8 +88,8 @@ $ npm install
   To run the test suite, first install the dependencies, then run `npm test`:
 
 ```bash
-$ npm install
-$ RABBITMQ_HOST=localhost npm test
+$ npm i
+$ RABBITMQ_HOST=localhost npm t
 ```
 
 
@@ -177,12 +137,6 @@ $ RABBITMQ_HOST=localhost npm test
 | ISLAND_CIRCUIT_BREAK_FAILRATE_THRESHOLD | Number  | 0.2                       |                                                                   |                                                                |
 | ISLAND_CIRCUIT_BREAK_REQUEST_THRESHOLD  | Number  | 10                        |                                                                   |                                                                |
 | ISLAND_FLOWMODE_DELAY                   | Number  | 10000                     |                                                                   |                                                                |
-
-
-## Milestones
-
-For details on our planned features and future direction please refer to our [milestones](https://github.com/spearhead-ea/island/milestones)
-
 
 
 ## People
