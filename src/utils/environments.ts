@@ -1,3 +1,4 @@
+import ms = require('ms');
 import { env, LoadEnv } from '../utils/env-loader';
 
 export type LoggerLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'crit';
@@ -33,15 +34,24 @@ export class IslandEnvironments {
 
   // Timeout during RPC execution
   @env()
-  public ISLAND_RPC_EXEC_TIMEOUT_MS: number = 25000;
+  public ISLAND_RPC_EXEC_TIMEOUT: string = '25s';
+  // deprecated
+  @env()
+  public ISLAND_RPC_EXEC_TIMEOUT_MS: number = 0;
 
   // Timeout during RPC call
   @env()
-  public ISLAND_RPC_WAIT_TIMEOUT_MS: number = 60000;
+  public ISLAND_RPC_WAIT_TIMEOUT: string = '60s';
+  // deprecated
+  @env()
+  public ISLAND_RPC_WAIT_TIMEOUT_MS: number = 0;
 
   // Time to load service
   @env()
-  public ISLAND_SERVICE_LOAD_TIME_MS: number = 60000;
+  public ISLAND_SERVICE_LOAD_TIME: string = '60s';
+  // deprecated
+  @env()
+  public ISLAND_SERVICE_LOAD_TIME_MS: number = 0;
 
   // Log level for logger
   @env({ eq: ['debug', 'info', 'notice', 'warning', 'error', 'crit'] })
@@ -64,8 +74,11 @@ export class IslandEnvironments {
   public ISLAND_STATUS_EXPORT: boolean = false;
 
   // Time to save file for instance status
+  @env()
+  public ISLAND_STATUS_EXPORT_TIME: string = '10s';
+  // deprecated
   @env({ legacyKeys: ['STATUS_EXPORT_TIME_MS'] })
-  public ISLAND_STATUS_EXPORT_TIME_MS: number = 10 * 1000;
+  public ISLAND_STATUS_EXPORT_TIME_MS: number = 0;
 
   // island-status-exporter uses this as a name for file
   @env({ required: false, legacyKeys: ['STATUS_FILE_NAME'] })
@@ -138,14 +151,21 @@ export class IslandEnvironments {
 
   @env()
   public ISLAND_USE_CIRCUIT_BREAK: boolean = false;
+
   @env()
-  public ISLAND_CIRCUIT_BREAK_TIME_MS: number = 60 * 1000;
+  public ISLAND_CIRCUIT_BREAK_TIME: string = '1m';
+  // deprecated
+  @env()
+  public ISLAND_CIRCUIT_BREAK_TIME_MS: number = 0;
   @env()
   public ISLAND_CIRCUIT_BREAK_FAILRATE_THRESHOLD: number = 0.2;
   @env()
   public ISLAND_CIRCUIT_BREAK_REQUEST_THRESHOLD: number = 10;
   @env()
-  public ISLAND_FLOWMODE_DELAY: number = 10000;
+  public ISLAND_FLOWMODE_DELAY_TIME: string = '10s';
+  // deprecated
+  @env()
+  public ISLAND_FLOWMODE_DELAY: number = 0;
 
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
@@ -154,6 +174,24 @@ export class IslandEnvironments {
     if (IslandEnvironments._instance) {
       throw new Error(`Error - use IslandEnvironments.getInstance()`);
     }
+    this.ISLAND_RPC_EXEC_TIMEOUT_MS = this.ISLAND_RPC_EXEC_TIMEOUT_MS === 0
+                                      ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
+                                      : this.ISLAND_RPC_EXEC_TIMEOUT_MS;
+    this.ISLAND_RPC_WAIT_TIMEOUT_MS = this.ISLAND_RPC_WAIT_TIMEOUT_MS === 0
+                                      ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
+                                      : this.ISLAND_RPC_WAIT_TIMEOUT_MS;
+    this.ISLAND_SERVICE_LOAD_TIME_MS = this.ISLAND_SERVICE_LOAD_TIME_MS === 0
+                                       ? ms(this.ISLAND_SERVICE_LOAD_TIME)
+                                       : this.ISLAND_SERVICE_LOAD_TIME_MS;
+    this.ISLAND_STATUS_EXPORT_TIME_MS = this.ISLAND_STATUS_EXPORT_TIME_MS === 0
+                                        ? ms(this.ISLAND_STATUS_EXPORT_TIME)
+                                        : this.ISLAND_STATUS_EXPORT_TIME_MS;
+    this.ISLAND_CIRCUIT_BREAK_TIME_MS = this.ISLAND_CIRCUIT_BREAK_TIME_MS === 0
+                                        ? ms(this.ISLAND_CIRCUIT_BREAK_TIME)
+                                        : this.ISLAND_CIRCUIT_BREAK_TIME_MS;
+    this.ISLAND_FLOWMODE_DELAY = this.ISLAND_FLOWMODE_DELAY === 0
+                                 ? ms(this.ISLAND_FLOWMODE_DELAY_TIME)
+                                 : this.ISLAND_FLOWMODE_DELAY;
     LoadEnv(this);
   }
 
