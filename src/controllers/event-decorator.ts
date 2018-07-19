@@ -51,6 +51,7 @@ export function subscribeEvent<T extends Event<U>, U>(eventClass: new (args: U) 
 
 export function subscribePattern(pattern: string, options?: SubscriptionOptions) {
   return (target: any, propertyKey: string, desc: PropertyDescriptor) => {
+    pattern = pattern.trim();
     const constructor = target.constructor as Function & PatternSubscriptionContainer;
     constructor._patternSubscriptions = constructor._patternSubscriptions || [];
     constructor._patternSubscriptions.push({

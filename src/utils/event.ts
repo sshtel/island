@@ -1,7 +1,5 @@
 import * as fs from 'fs';
-
 import { Loggers } from 'island-loggers';
-
 import { BaseEvent, Event, EventHandler, SubscriptionOptions } from '../services/event-subscriber';
 import { collector } from './status-collector';
 
@@ -12,7 +10,6 @@ export interface EventSubscription<T extends Event<U>, U> {
 }
 
 export namespace Events {
-
   export namespace Arguments {
     export interface LoggerTypeChanged {
       type: 'short' | 'long' | 'json';

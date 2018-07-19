@@ -236,6 +236,7 @@ export class RPCService {
 
   public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata: boolean}): Promise<U>;
   public async invoke(name: string, msg: any, opts?: {withRawdata: boolean}): Promise<any> {
+    name = name.trim();
     const routingKey = this.makeRoutingKey();
     const option = this.makeInvokeOption(name);
     const p = this.waitResponse(option.correlationId!, (msg: Message) => {

@@ -51,7 +51,7 @@ export class EventSubscriber extends Subscriber {
               private eventClass: new (args: any) => Event<any>) {
     super();
     const event = new eventClass(null);
-    this.key = event.key;
+    this.key = event.key.trim();
   }
 
   getQueue(): string {
