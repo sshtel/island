@@ -607,13 +607,13 @@ export class RPCService {
         try {
           await Bluebird.resolve()
             .then(()  => sanitizeAndValidate(parsed, rpcOptions))
-            .tap (req => logger.debug(`Got ${rpcName} with ${JSON.stringify(req)}`))
+            .tap (req => logger.debug(`[RPC][REQ] ${rpcName} with ${JSON.stringify(req, null, 2)}`))
             .then(req => this.dohook('pre', type, req))
             .then(req => handler(req))
             .then(res => this.dohook('post', type, res))
             .then(res => sanitizeAndValidateResult(res, rpcOptions))
             .then(res => this.reply(replyTo, res, options))
-            .tap (res => logger.debug(`responses ${JSON.stringify(res)} ${type}, ${rpcName}`))
+            .tap (res => logger.debug(`[RPC][RESP] ${JSON.stringify(res, null, 2)} ${type}, ${rpcName}`))
             .timeout(Environments.ISLAND_RPC_EXEC_TIMEOUT_MS);
         } catch (err) {
           await Bluebird.resolve(err)
