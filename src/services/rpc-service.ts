@@ -184,7 +184,7 @@ export class RPCService {
                         handler: (req: any) => Promise<any>,
                         type: RpcType,
                         rpcOptions?: RpcOptions): Promise<void> {
-    this.rpcEntities[rpcName] = { handler, type, rpcOptions };
+    this.rpcEntities[rpcName.toUpperCase()] = { handler, type, rpcOptions };
   }
 
   public async listen() {
@@ -236,7 +236,7 @@ export class RPCService {
 
   public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata: boolean}): Promise<U>;
   public async invoke(name: string, msg: any, opts?: {withRawdata: boolean}): Promise<any> {
-    name = name.trim();
+    name = name.trim().toUpperCase();
     const routingKey = this.makeRoutingKey();
     const option = this.makeInvokeOption(name);
     const p = this.waitResponse(option.correlationId!, (msg: Message) => {
@@ -588,6 +588,7 @@ export class RPCService {
 
   private async startConsumingQueue(queue: string, shard: number): Promise<IConsumerInfo> {
     return this._consume(queue, async (msg: Message) => {
+      console.log(`[startConsumingQueue] : ${msg.fields.exchange}`);
       const rpcName = msg.fields.exchange;
       if (!this.rpcEntities[rpcName]) {
         logger.warning('no such RPC found', rpcName);

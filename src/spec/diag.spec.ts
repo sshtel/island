@@ -162,8 +162,8 @@ describe('RPC Diag', () => {
     expect(proc.queue).toBeDefined();
   }));
 
-  function registerRpc(rpcName, func?: (req) => Promise<any>, validation?: {[key: string]: any}) {
-    return rpcService.register(rpcName, func || (async req => 'success'), 'rpc', {
+  function registerRpc(rpcName: string, func?: (req) => Promise<any>, validation?: {[key: string]: any}) {
+    return rpcService.register(rpcName.toUpperCase(), func || (async req => 'success'), 'rpc', {
       schema: {
         query: {
           sanitization: {},
@@ -174,34 +174,40 @@ describe('RPC Diag', () => {
   }
 
   it('could invoke a RPC', spec(async () => {
-    await registerRpc('testDiag');
-    expect((await callRpc('testDiag')).message).toEqual(JSON.stringify('success'));
+    const rpcName = 'testDiag';
+    await registerRpc(rpcName);
+    expect((await callRpc(rpcName.toUpperCase())).message).toEqual(JSON.stringify('success'));
   }));
 
   it('could invoke a RPC have validation', spec(async () => {
-    await registerRpc('testWithUnary', undefined, validate.validate({ sid: String }));
-    const response = await callRpc('testWithUnary', { plainQuery: '{"sid":"asdf"}', opts: { stack: true }});
+    const rpcName = 'testWithUnary';
+    await registerRpc(rpcName, undefined, validate.validate({ sid: String }));
+    const response = await callRpc(rpcName.toUpperCase(), { plainQuery: '{"sid":"asdf"}', opts: { stack: true }});
     expect(response.message).toBe(JSON.stringify('success'));
   }));
 
   it('should handle an error', spec(async () => {
-    await registerRpc('throwError', async req => throwError('error'));
-    expect(JSON.parse((await callRpc('throwError')).error).message).toEqual('10020001-error');
+    const rpcName = 'throwError';
+    await registerRpc(rpcName, async req => throwError('error'));
+    expect(JSON.parse((await callRpc(rpcName.toUpperCase())).error).message).toEqual('10020001-error');
   }));
 
   it('should handle an error with a stack', spec(async () => {
-    await registerRpc('throwError2', async req => throwError('error'));
-    expect(JSON.parse((await callRpc('throwError2', {opts: {stack: true}})).error).stack).toBeDefined();
+    const rpcName = 'throwError2';
+    await registerRpc(rpcName, async req => throwError('error'));
+    expect(JSON.parse((await callRpc(rpcName.toUpperCase(), {opts: {stack: true}})).error).stack).toBeDefined();
   }));
 
   it('should validate a RPC query', spec(async () => {
-    await registerRpc('testWithUnary', async req => 'a', validate.validate({ sid: String }));
-    const response = await callRpc('testWithUnary');
+    const rpcName = 'testWithUnary';
+    await registerRpc(rpcName, async req => 'a', validate.validate({ sid: String }));
+    const response = await callRpc(rpcName.toUpperCase());
     expect(response.error).toMatch(/.*Wrong parameter schema.*/);
   }));
 
   it('should fetch registered RPCs', spec(async () => {
-    await registerRpc('testWithQuery', async req => throwError('error'), validate.validate({ sid: String }));
+    const rpcName = 'testWithUnary';
+    await registerRpc(rpcName, async req => throwError('error'), validate.validate({ sid: String }));
     await rpcService.listen();
     fs.writeFileSync(fileName, '');
     await amqpChannelPool.usingChannel(async chan => {
@@ -209,7 +215,7 @@ describe('RPC Diag', () => {
     });
     const response = await readResponse(fileName);
     expect(response.message).toBe(JSON.stringify({
-      testWithQuery: {
+      TESTWITHUNARY: {
         type: 'rpc',
         rpcOptions: {
           schema: {
@@ -283,21 +289,25 @@ describe('Diag rpc:list', () => {
   }
 
   it('should summarize them', spec(async () => {
-    await registerRpc('testDiag');
-    expect(await listRpc()).toEqual(['testDiag']);
+    const rpcName = 'testDiag';
+    await registerRpc(rpcName);
+    expect(await listRpc()).toEqual([rpcName.toUpperCase()]);
   }));
 
   it('should summarize them with validate', spec(async () => {
-    await registerRpc('testWithQuery', validate.validate(String));
-    expect(await listRpc()).toEqual(['testWithQuery - string']);
+    const rpcName = 'testWithQuery';
+    await registerRpc(rpcName, validate.validate(String));
+    expect(await listRpc()).toEqual([`${rpcName.toUpperCase()} - string`]);
   }));
 
   it('should summarize them with object validate', spec(async () => {
-    await registerRpc('testWithUnary', validate.validate({ sid: String }));
-    await registerRpc('testWithBinary', validate.validate({ aid: String, sid: String }));
+    const rpcNameUnary = 'testWithUnary';
+    const rpcNameBUnary = 'testWithBUnary';
+    await registerRpc(rpcNameUnary, validate.validate({ sid: String }));
+    await registerRpc(rpcNameBUnary, validate.validate({ aid: String, sid: String }));
     expect(await listRpc()).toEqual([
-      'testWithUnary - sid:string',
-      'testWithBinary - aid:string, sid:string'
+      `${rpcNameUnary.toUpperCase()} - sid:string`,
+      `${rpcNameBUnary.toUpperCase()} - aid:string, sid:string`
     ]);
   }));
 });

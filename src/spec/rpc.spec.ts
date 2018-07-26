@@ -250,7 +250,8 @@ describe('RPC(isolated test)', () => {
   }));
 
   it('should show an extra info of an error', spec(async () => {
-    await rpcService.register('hoho', req => {
+    const rpcName = 'HOHO';
+    await rpcService.register(rpcName, req => {
       throw new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
     }, 'rpc');
     await rpcService.listen();
@@ -258,14 +259,15 @@ describe('RPC(isolated test)', () => {
     try {
       await rpcService.invoke('hoho', 'asdf');
     } catch (e) {
-      expect(e.extra.rpcName).toEqual('hoho');
+      expect(e.extra.rpcName).toEqual(rpcName);
       expect(e.extra.req).toEqual('asdf');
     }
   }));
 
   it('should be canceled by timeout', spec(async () => {
+    const rpcName = 'UNMETHOD';
     try {
-      await rpcService.invoke('unmethod', 'arg');
+      await rpcService.invoke(rpcName, 'arg');
       fail();
     } catch (e) {
       const rs = (rpcService as any);
@@ -273,7 +275,7 @@ describe('RPC(isolated test)', () => {
       expect(e.code).toEqual(10010023); // UNKNOWN/ISLANDJS/0023/RPC_TIMEOUT
       expect(e.extra.uuid).not.toBeFalsy();
       expect(rs.timedOutOrdered.length).toEqual(1);
-      expect(rs.timedOut[rs.timedOutOrdered[0]]).toEqual('unmethod');
+      expect(rs.timedOut[rs.timedOutOrdered[0]]).toEqual(rpcName);
     }
   }));
 
@@ -387,20 +389,23 @@ describe('RPC(isolated test)', () => {
     const rpcServiceThird = new RPCService('third-island');
     await rpcServiceThird.initialize(amqpChannelPool);
 
-    await rpcServiceThird.register('third', msg => {
+    const rpcNameThird = 'THIRD';
+    const rpcNameSecond = 'SECOND';
+    const rpcNameFirst = 'FIRST';
+    await rpcServiceThird.register(rpcNameThird, msg => {
       throw new Error('custom error');
     }, 'rpc');
     await rpcServiceThird.listen();
-    await rpcServiceSecond.register('second', async msg => {
-      await rpcServiceSecond.invoke<string, string>('third', 'hello');
+    await rpcServiceSecond.register(rpcNameSecond, async msg => {
+      await rpcServiceSecond.invoke<string, string>(rpcNameThird, 'hello');
     }, 'rpc');
     await rpcServiceSecond.listen();
-    await rpcService.register('first', async msg => {
-      await rpcService.invoke<string, string>('second', 'hello');
+    await rpcService.register(rpcNameFirst, async msg => {
+      await rpcService.invoke<string, string>(rpcNameSecond, 'hello');
     }, 'rpc');
     await rpcService.listen();
     try {
-      await rpcServiceSecond.invoke<string, string>('first', 'hello');
+      await rpcServiceSecond.invoke<string, string>(rpcNameFirst, 'hello');
     } catch (e) {
       await rpcServiceSecond.unregisterAll();
 
@@ -408,7 +413,7 @@ describe('RPC(isolated test)', () => {
       expect(e.code).toEqual(10020001);
       expect(e.name).toEqual('Error');
       expect(e.extra.island).toBe('third-island');
-      expect(e.extra.rpcName).toBe('third');
+      expect(e.extra.rpcName).toBe(rpcNameThird);
     }
   }));
 
@@ -425,21 +430,24 @@ describe('RPC(isolated test)', () => {
       }
     };
 
-    await rpcServiceThird.register('third', msg => Promise.resolve('hello'), 'rpc', rpcOptions);
+    const rpcNameThird = 'THIRD';
+    const rpcNameSecond = 'SECOND';
+    const rpcNameFirst = 'FIRST';
+    await rpcServiceThird.register(rpcNameThird, msg => Promise.resolve('hello'), 'rpc', rpcOptions);
     await rpcServiceThird.listen();
 
-    await rpcServiceSecond.register('second', msg => {
-      return rpcServiceSecond.invoke<any, string>('third', 1234);
+    await rpcServiceSecond.register(rpcNameSecond, msg => {
+      return rpcServiceSecond.invoke<any, string>(rpcNameThird, 1234);
     }, 'rpc');
     await rpcServiceSecond.listen();
 
-    await rpcService.register('first', msg => {
-      return rpcService.invoke<string, string>('second', 'hello');
+    await rpcService.register(rpcNameFirst, msg => {
+      return rpcService.invoke<string, string>(rpcNameSecond, 'hello');
     }, 'rpc');
     await rpcService.listen();
 
     try {
-      const p = await rpcServiceSecond.invoke<string, string>('first', 'hello');
+      const p = await rpcServiceSecond.invoke<string, string>(rpcNameFirst, 'hello');
       console.log(p);
     } catch (e) {
       await rpcServiceSecond.unregisterAll();
@@ -449,7 +457,7 @@ describe('RPC(isolated test)', () => {
       expect(e.code).toEqual(10010002); // UNKNOWN/ISLANDJS/0002/WRONG_PARAMETER_SCHEMA
       expect(e.name).toEqual('LogicError');
       expect(e.extra.island).toBe('third-island');
-      expect(e.extra.rpcName).toBe('third');
+      expect(e.extra.rpcName).toBe(rpcNameThird);
     }
   }));
 
