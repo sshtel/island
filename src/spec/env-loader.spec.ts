@@ -78,6 +78,7 @@ describe('Environment Loader', () => {
   });
 
   it(`should load values from first legacy key`, done => {
+    process.env.ISLAND_SERVICE_NAME = '';
     process.env.SERVICE_NAME = 'SERVICE_NAME';
     process.env.DUMMY_NAME = 'DUMMY_NAME';
     class ProcessEnv {
@@ -90,7 +91,7 @@ describe('Environment Loader', () => {
     }
 
     const pe = new ProcessEnv();
-    expect(pe.ISLAND_SERVICE_NAME).toEqual('SERVICE_NAME');
+    expect(pe.ISLAND_SERVICE_NAME).toEqual(process.env.SERVICE_NAME);
     done();
   });
 
@@ -122,7 +123,7 @@ describe('Environment Loader', () => {
       }
     }
 
-    expect(() => new ProcessEnv()).toThrowError(/ISLAND_LOGGER_TYPE/);
+    expect(() => new ProcessEnv()).toThrowError(/Environments/);
     done();
   });
 
@@ -137,7 +138,7 @@ describe('Environment Loader', () => {
       }
     }
 
-    expect(() => new ProcessEnv()).toThrowError(/ISLAND_LOGGER_TYPE/);
+    expect(() => new ProcessEnv()).toThrowError(/Environments/);
     done();
   });
 
