@@ -14,6 +14,10 @@ export enum ErrorLevel {
   RESERVED8 = 8,
   ETC       = 9
 }
+export interface ErrorOptions  {
+  extra?: any;
+  statusCode?: number;
+}
 
 export enum IslandLevel {
   ISLAND    = 0,
@@ -93,12 +97,15 @@ export class AbstractError extends Error {
   constructor(islandCode: number,
               islandLevel: IslandLevel,
               errorCode: number,
-              reason: string) {
+              reason: string,
+              opts?: ErrorOptions) {
     const code = mergeCode(islandCode, islandLevel, errorCode);
     super(`${code}-${reason}`);
     this.code = code;
     this.reason = reason;
     this.extra = { uuid: uuid.v4() };
+    if (opts && opts.extra) this.extra = _.merge(opts.extra, this.extra);
+    if (opts && !_.isUndefined(opts.statusCode)) this.statusCode = opts.statusCode;
   }
 
   split() {
@@ -110,8 +117,9 @@ export class AbstractExpectedError extends AbstractError {
   constructor(islandCode: number,
               islandLevel: IslandLevel,
               errorCode: number,
-              reason: string) {
-    super(islandCode, islandLevel, errorCode, reason);
+              reason: string,
+              opts?: ErrorOptions) {
+    super(islandCode, islandLevel, errorCode, reason, opts);
     this.name = 'ExpectedError';
   }
 }
@@ -120,8 +128,9 @@ export class AbstractLogicError extends AbstractError {
 constructor(islandCode: number,
             islandLevel: IslandLevel,
             errorCode: number,
-            reason: string) {
-    super(islandCode, islandLevel, errorCode, reason);
+            reason: string,
+            opts?: ErrorOptions) {
+    super(islandCode, islandLevel, errorCode, reason, opts);
     this.name = 'LogicError';
   }
 }
@@ -130,8 +139,9 @@ export class AbstractFatalError extends AbstractError {
   constructor(islandCode: number,
               islandLevel: IslandLevel,
               errorCode: number,
-              reason: string) {
-    super(islandCode, islandLevel, errorCode, reason);
+              reason: string,
+              opts?: ErrorOptions) {
+    super(islandCode, islandLevel, errorCode, reason, opts);
     this.name = 'FatalError';
   }
 }
@@ -140,27 +150,28 @@ export class AbstractEtcError extends AbstractError {
   constructor(islandCode: number,
               islandLevel: IslandLevel,
               errorCode: number,
-              reason: string) {
-    super(islandCode, islandLevel, errorCode, reason);
+              reason: string,
+              opts?: ErrorOptions) {
+    super(islandCode, islandLevel, errorCode, reason, opts);
     this.name = 'EtcError';
   }
 }
 
 export class LogicError extends AbstractLogicError {
-  constructor(errorCode: ISLAND.LOGIC, reason?: string) {
-    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '');
+  constructor(errorCode: ISLAND.LOGIC, reason?: string, opts?: ErrorOptions) {
+    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '', opts);
   }
 }
 
 export class FatalError extends AbstractFatalError {
-  constructor(errorCode: ISLAND.FATAL, reason?: string) {
-    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '');
+  constructor(errorCode: ISLAND.FATAL, reason?: string, opts?: ErrorOptions) {
+    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '', opts);
   }
 }
 
 export class ExpectedError extends AbstractExpectedError {
-  constructor(errorCode: ISLAND.EXPECTED, reason?: string) {
-    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '');
+  constructor(errorCode: ISLAND.EXPECTED, reason?: string, opts?: ErrorOptions) {
+    super(islandCode, IslandLevel.ISLANDJS, errorCode, reason || '', opts);
   }
 }
 
