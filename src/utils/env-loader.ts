@@ -74,7 +74,7 @@ function isInvalidEnvValue(value) {
 }
 
 function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
-  let defaultValue: any = undefined;
+  let loadedValue: any = undefined;
 
   const keys = (schema.legacyKeys && schema.legacyKeys.length) ? [itemKey].concat(schema.legacyKeys) : [itemKey];
 
@@ -92,42 +92,53 @@ function loadValueFromEnv(schema: any, object: any, itemKey: string): void {
             // for support tencent-island.(legacy codes)
             case '1':
             case 'true':
-              defaultValue = true;
+              loadedValue = true;
               break;
             case '0':
             case 'false':
-              defaultValue = false;
+              loadedValue = false;
               break;
           }
         }
         break;
       case 'number':
       case 'float':
-        defaultValue = parseFloat(envVar);
+        loadedValue = parseFloat(envVar);
         break;
       case 'int':
       case 'integer':
-        defaultValue = parseInt(envVar, 10);
+        loadedValue = parseInt(envVar, 10);
         break;
       case 'string':
       default:
-        defaultValue = envVar;
+        loadedValue = envVar;
         break;
     }
     return true;
   });
 
-  if (isInvalidEnvValue(defaultValue)) {
-    defaultValue = object[itemKey];
+  // schema-inspector will handle all invalid cases.
+  if (isInvalidEnvValue(loadedValue)) {
+    return;
   }
 
-  if (isInvalidEnvValue(defaultValue) && schema.optional === false) {
-    throw new Error(`Environment "${itemKey}": not optional and has no data`);
-  }
-  object[itemKey] = defaultValue;
+  object[itemKey] = loadedValue;
 }
 
-function loadAndSanitize(object: any): void {
+/**
+ * environment decorator - 3 custom options & schema-inspector options
+ * required: boolean - default true, also supports optional.
+ * legacyKeys: array of string - find process.env[some of legacyKeys] when process.env[key] is undefined
+ *
+ * only supports 1 depth object.
+ */
+// TODO : custom: string - if ms and type number, parse value with ms
+// TODO : support TypeScript 2.7 definite property assignment assertion - reflection didn't support yet
+export function env(optionalSchema?: any) {
+  return makeDecorator(optionalSchema);
+}
+
+export function LoadEnv(object: any): void {
   const metadata = defaultSchemaStorage.getSchemasForObject(object.constructor);
   _.forEach(metadata.schema.properties, (schema, key) => {
     if (typeof schema.optional !== 'boolean') {
@@ -141,12 +152,16 @@ function loadAndSanitize(object: any): void {
   const result = inspector.validate(metadata.schema, object);
   const errors = _.filter(result.error || [], v => v.reason !== 'type' && v.property !== '@');
   if (errors.length) {
-    throw new Error(JSON.stringify(errors));
+    let message = '[Environments] Initalization Error!!';
+    _.forEach(errors, err => {
+      message += `\nprocess.env ${err.property} ${err.message}`;
+    });
+    throw new Error(message);
   }
 }
 
-// Do not execute before sanitize
-function setReadonly(object: any): void {
+// Do not execute before LoadEnv!!!
+export function setReadonly(object: any): void {
   const metadata = defaultSchemaStorage.getSchemasForObject(object.constructor);
   _.forEach(metadata.schema.properties, (schema, key) => {
     if (!schema.writable) {
@@ -155,26 +170,5 @@ function setReadonly(object: any): void {
       });
     }
   });
-}
-
-/**
- * environment decorator - 3 custom options & schema-inspector options
- * required: boolean - default true, also supports optional.
- * legacyKeys: array of string - find process.env[some of legacyKeys] when process.env[key] is undefined
- *
- * only supports 1 depth object.
- */
-// TODO : support TypeScript 2.7 definite property assignment assertion - reflection didn't support yet
-export function env(optionalSchema?: any) {
-  return makeDecorator(optionalSchema);
-}
-
-export function LoadEnv(object: any): void {
-  loadAndSanitize(object);
-  return;
-}
-
-export function SetReadonly(object: any): void {
-  setReadonly(object);
   return;
 }
