@@ -1,6 +1,6 @@
 {
   "name": "island",
-  "version": "3.6.0-rc.1",
+  "version": "3.6.0-rc.2",
   "description": "A package suite for building microservice using TypeScript.",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
