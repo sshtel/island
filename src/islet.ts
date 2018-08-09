@@ -61,6 +61,7 @@ export default class Islet {
   private adapters: { [name: string]: IAbstractAdapter; } = {};
   private listenAdapters: { [name: string]: IListenableAdapter; } = {};
   private baseAdapters: { [name: string]: IAbstractAdapter; } = {};
+  private onGoingStatus: boolean = true;
 
   /**
    * Register the adapter.
@@ -118,9 +119,14 @@ export default class Islet {
     throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented exception.');
   }
 
+  public isDestroyed() {
+    return !this.onGoingStatus;
+  }
+
   protected onPrepare() {}
   protected onInitialized() {}
   protected onDestroy() {
+    this.onGoingStatus = false;
     logger.warning(`island service shut down`);
   }
   protected onStarted() {}
@@ -146,7 +152,6 @@ export default class Islet {
       await this.onPrepare();
       await Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize()));
       if (opts.SIGTERM) process.once('SIGTERM', this.destroy.bind(this));
-      process.once('SIGINT', this.destroy.bind(this));
       if (opts.SIGUSR2) process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
