@@ -33,6 +33,7 @@ describe('EventService status', () => {
 describe('Event Diag', () => {
   const amqpChannelPool = new AmqpChannelPoolService();
   const eventService = new EventService('diag-event-diag-spec');
+  const fileName = 'haha.txt.proc';
 
   beforeEach(spec(async () => {
     try {
@@ -49,8 +50,8 @@ describe('Event Diag', () => {
       await eventService.purge();
       await Bluebird.delay(100);
       await amqpChannelPool.purge();
-      if (fs.existsSync('./haha.txt')) {
-        fs.unlinkSync('./haha.txt');
+      if (fs.existsSync('./' + fileName)) {
+        fs.unlinkSync('./' + fileName);
       }
     } catch (e) {
       console.error(e);
@@ -78,7 +79,6 @@ describe('Event Diag', () => {
   }));
 
   it('should pong by ping', spec(async () => {
-    const fileName = 'haha.txt';
     fs.writeFileSync(fileName, '');
     const proc = getProc();
     await amqpChannelPool.usingChannel(async chan => {
@@ -89,7 +89,6 @@ describe('Event Diag', () => {
   }));
 
   it('could get current status', spec(async () => {
-    const fileName = 'haha.txt';
     fs.writeFileSync(fileName, '');
     const proc = getProc();
     await amqpChannelPool.usingChannel(async chan => {
@@ -107,7 +106,7 @@ describe('Event Diag', () => {
 describe('RPC Diag', () => {
   let amqpChannelPool;
   let rpcService: RPCService;
-  const fileName = 'haha.txt';
+  const fileName = 'haha.txt.proc';
   const oldTimeout = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
 
   beforeAll(spec(async () => {
@@ -247,7 +246,7 @@ describe('RPC Diag', () => {
 describe('Diag rpc:list', () => {
   let amqpChannelPool;
   let rpcService: RPCService;
-  const fileName = 'haha.txt';
+  const fileName = 'haha.txt.proc';
 
   beforeEach(spec(async () => {
     try {

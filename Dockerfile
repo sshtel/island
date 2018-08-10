@@ -1,4 +1,4 @@
-FROM spearheadea/tsnode:8.9.4-slim-2.8.4
+FROM node:latest
 
 WORKDIR /app
 COPY package.json /app/

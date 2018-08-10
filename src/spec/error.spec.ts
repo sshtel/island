@@ -1,3 +1,4 @@
+import * as uuid from 'uuid';
 import {
   AbstractError,
   AbstractFatalError,
@@ -62,6 +63,28 @@ describe('Error', () => {
       IslandLevel.ISLANDJS,
       ISLAND.LOGIC.L0001_PLAYER_NOT_EXIST);
     expect(code).toEqual(10110001);
+  });
+
+  it('should added extra & statusCode via error options', () => {
+    setIslandCode(101);
+    const extra = { uuid: uuid.v4(), code: 1000003 };
+    const statusCode = 999;
+    const logic = new LogicError(ISLAND.LOGIC.L0001_PLAYER_NOT_EXIST, '', { statusCode, extra });
+    expect(logic.code).toEqual(10110001);
+    expect(logic.extra).toEqual(extra);
+    expect(logic.statusCode).toEqual(statusCode);
+
+    setIslandCode(111);
+    const fatal = new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED, '', { statusCode, extra });
+    expect(fatal.code).toEqual(11110001);
+    expect(fatal.extra).toEqual(extra);
+    expect(fatal.statusCode).toEqual(statusCode);
+
+    setIslandCode(999);
+    const expected = new ExpectedError(ISLAND.EXPECTED.E0001_UNKNOWN, '', { statusCode, extra });
+    expect(expected.code).toEqual(99910001);
+    expect(expected.extra).toEqual(extra);
+    expect(expected.statusCode).toEqual(statusCode);
   });
 });
 
