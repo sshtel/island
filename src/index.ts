@@ -94,6 +94,7 @@ export {
   AbstractExpectedError,
   AbstractFatalError,
   AbstractLogicError,
+  ErrorOptions,
   ErrorLevel,
   ISLAND,
   IslandLevel,
