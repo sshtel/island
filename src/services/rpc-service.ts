@@ -11,7 +11,15 @@ import uuid = require('uuid');
 import { sanitize, validate } from '../middleware/schema.middleware';
 import { DiagRpcArgs } from '../utils/diag';
 import { Environments } from '../utils/environments';
-import { AbstractError, FatalError, ISLAND, LogicError, mergeIslandJsError } from '../utils/error';
+import {
+  AbstractError,
+  FatalError,
+  getIslandCode,
+  ISLAND,
+  IslandLevel,
+  LogicError,
+  mergeIslandJsError
+} from '../utils/error';
 import { logger } from '../utils/logger';
 import reviver from '../utils/reviver';
 import { RouteLogger } from '../utils/route-logger';
@@ -477,6 +485,7 @@ export class RPCService {
   }
 
   private attachExtraError(err: AbstractError, rpcName: string, req: any) {
+    err.code = err.code || AbstractError.mergeCode(getIslandCode(), IslandLevel.UNKNOWN, 0);
     err.extra = _.defaults({}, err.extra, { island: this.serviceName, rpcName, req });
     err.extra = AbstractError.ensureUuid(err.extra);
     return err;
@@ -642,4 +651,3 @@ export class RPCService {
      throw new FatalError(ISLAND.FATAL.F0027_CONSUMER_IS_CANCELED);
    }
 }
-
