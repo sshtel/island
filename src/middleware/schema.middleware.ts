@@ -13,12 +13,16 @@ export function sanitize(subschema, target) {
   return result.data;
 }
 
-export function validate(subschema, target): boolean {
+export function validate(subschema, target, name: string = '', type: string = ''): boolean {
   if (!subschema) return true;
   translateSchemaType(subschema);
   const result = inspector.validate(subschema, target);
   if (!result.valid) {
-    logger.notice(`Is result valid? ${result.valid} / ${result.format()}`);
+    let logFunc = logger.debug;
+    if (type === 'query') {
+      logFunc = logger.notice;
+    }
+    logFunc(`${type}(${name}) validation failed. ${result.valid} / ${result.format()}`);
   }
   return result.valid;
 }

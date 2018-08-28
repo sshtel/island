@@ -71,13 +71,13 @@ export interface InitializeOptions {
   consumerAmqpChannelPool?: AmqpChannelPoolService;
 }
 
-function sanitizeAndValidate(content, rpcOptions) {
+function sanitizeAndValidate(content, rpcName: string, rpcOptions?: RpcOptions) {
   if (rpcOptions) {
     if (_.get(rpcOptions, 'schema.query.sanitization')) {
       content = sanitize(rpcOptions.schema!.query!.sanitization, content);
     }
     if (_.get(rpcOptions, 'schema.query.validation')) {
-      if (!validate(rpcOptions.schema!.query!.validation, content)) {
+      if (!validate(rpcOptions.schema!.query!.validation, content, rpcName, '[RPC query]')) {
         throw new LogicError(ISLAND.LOGIC.L0002_WRONG_PARAMETER_SCHEMA, `Wrong parameter schema`);
       }
     }
@@ -85,13 +85,13 @@ function sanitizeAndValidate(content, rpcOptions) {
   return content;
 }
 
-function sanitizeAndValidateResult(res, rpcOptions?: RpcOptions) {
+function sanitizeAndValidateResult(res, rpcName: string, rpcOptions?: RpcOptions) {
   if (!rpcOptions) return res;
   if (_.get(rpcOptions, 'schema.result.sanitization')) {
     res = sanitize(rpcOptions.schema!.result!.sanitization, res);
   }
   if (_.get(rpcOptions, 'schema.result.validation')) {
-    validate(rpcOptions.schema!.result!.validation, res);
+    validate(rpcOptions.schema!.result!.validation, res, rpcName, '[RPC result]');
   }
   return res;
 }
@@ -616,12 +616,12 @@ export class RPCService {
         const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
         try {
           await Bluebird.resolve()
-            .then(()  => sanitizeAndValidate(parsed, rpcOptions))
+            .then(()  => sanitizeAndValidate(parsed, rpcName, rpcOptions))
             .tap (req => logger.debug(`[RPC][REQ] ${rpcName} with ${JSON.stringify(req, null, 2)}`))
             .then(req => this.dohook('pre', type, req))
             .then(req => handler(req))
             .then(res => this.dohook('post', type, res))
-            .then(res => sanitizeAndValidateResult(res, rpcOptions))
+            .then(res => sanitizeAndValidateResult(res, rpcName, rpcOptions))
             .then(res => this.reply(replyTo, res, options))
             .tap (res => logger.debug(`[RPC][RESP] ${JSON.stringify(res, null, 2)} ${type}, ${rpcName}`))
             .timeout(Environments.ISLAND_RPC_EXEC_TIMEOUT_MS);
