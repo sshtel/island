@@ -22,7 +22,7 @@ export default class SocketIOAdapter extends ListenableAdapter<io.Server, Socket
    * @returns {Promise<void>}
    */
   public listen() {
-    if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
+    if (!this.options) throw new FatalError(ISLAND.ERROR.E0025_MISSING_ADAPTER_OPTIONS);
     this.adaptee.listen(this.options.port);
     return Promise.resolve();
   }

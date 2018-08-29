@@ -51,7 +51,7 @@ export default class Islet {
    */
   private static registerIslet(islet: Islet) {
     if (Islet.islet) {
-      throw new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED,
+      throw new FatalError(ISLAND.ERROR.E0001_ISLET_ALREADY_HAS_BEEN_REGISTERED,
                            'The islet already has been registered.');
     }
     Islet.islet = islet;
@@ -69,7 +69,7 @@ export default class Islet {
    * @param {IAbstractAdapter} adapter
    */
   public registerAdapter(name: string, adapter: IAbstractAdapter) {
-    if (this.adapters[name]) throw new FatalError(ISLAND.FATAL.F0002_DUPLICATED_ADAPTER, 'duplicated adapter');
+    if (this.adapters[name]) throw new FatalError(ISLAND.ERROR.E0002_DUPLICATED_ADAPTER, 'duplicated adapter');
     this.adapters[name] = adapter;
     if (adapter instanceof ListenableAdapter) {
       this.listenAdapters[name] = adapter;
@@ -108,7 +108,7 @@ export default class Islet {
    * @returns {typeof Adapter}
    */
   public getAdaptee<T>(name: string): T {
-    if (!this.adapters[name]) throw new FatalError(ISLAND.FATAL.F0003_MISSING_ADAPTER, 'Missing adapter');
+    if (!this.adapters[name]) throw new FatalError(ISLAND.ERROR.E0003_MISSING_ADAPTER, 'Missing adapter');
     return this.adapters[name].adaptee as T;
   }
 
@@ -116,7 +116,7 @@ export default class Islet {
    * @abstract
    */
   public main() {
-    throw new FatalError(ISLAND.FATAL.F0004_NOT_IMPLEMENTED_ERROR, 'Not implemented exception.');
+    throw new FatalError(ISLAND.ERROR.E0004_NOT_IMPLEMENTED_ERROR, 'Not implemented exception.');
   }
 
   public isDestroyed() {

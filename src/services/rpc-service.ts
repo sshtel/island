@@ -78,7 +78,7 @@ function sanitizeAndValidate(content, rpcName: string, rpcOptions?: RpcOptions) 
     }
     if (_.get(rpcOptions, 'schema.query.validation')) {
       if (!validate(rpcOptions.schema!.query!.validation, content, rpcName, '[RPC query]')) {
-        throw new LogicError(ISLAND.LOGIC.L0002_WRONG_PARAMETER_SCHEMA, `Wrong parameter schema`);
+        throw new LogicError(ISLAND.ERROR.E0031_WRONG_PARAMETER_SCHEMA, `Wrong parameter schema`);
       }
     }
   }
@@ -313,7 +313,7 @@ export class RPCService {
     if (20 < this.timedOutOrdered.length) {
       this.timedOut = _.omit(this.timedOut, this.timedOutOrdered.shift()!);
     }
-    const err = new FatalError(ISLAND.FATAL.F0023_RPC_TIMEOUT,
+    const err = new FatalError(ISLAND.ERROR.E0023_RPC_TIMEOUT,
                                `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
     err.statusCode = 504;
     throw err;
@@ -346,7 +346,7 @@ export class RPCService {
     return this._consume(this.responseQueueName, (msg: Message | null) => {
       if (!msg) {
         logger.crit(`The consumer is canceled, will lose following responses - https://goo.gl/HIgy4D`);
-        throw new FatalError(ISLAND.FATAL.F0027_CONSUMER_IS_CANCELED);
+        throw new FatalError(ISLAND.ERROR.E0027_CONSUMER_IS_CANCELED);
       }
       const correlationId = msg.properties.correlationId;
       if (!correlationId) {
@@ -476,7 +476,7 @@ export class RPCService {
   }
 
   private isCritical(err) {
-    return err.code === mergeIslandJsError(ISLAND.FATAL.F0027_CONSUMER_IS_CANCELED);
+    return err.code === mergeIslandJsError(ISLAND.ERROR.E0027_CONSUMER_IS_CANCELED);
   }
 
   private logRpcError(err) {
@@ -605,7 +605,7 @@ export class RPCService {
       }
       const { type, handler, rpcOptions } = this.rpcEntities[rpcName];
       const { replyTo, headers, correlationId, timestamp } = msg.properties;
-      if (!replyTo) throw new FatalError(ISLAND.FATAL.F0026_MISSING_REPLYTO_IN_RPC);
+      if (!replyTo) throw new FatalError(ISLAND.ERROR.E0026_MISSING_REPLYTO_IN_RPC);
 
       const tattoo = headers && headers.tattoo;
       const extra = headers && headers.extra || {};
@@ -648,6 +648,6 @@ export class RPCService {
   private assertMessage(msg: Message) {
      if (msg) return;
      logger.crit(`The RPC request queue is canceled - https://goo.gl/HIgy4D`);
-     throw new FatalError(ISLAND.FATAL.F0027_CONSUMER_IS_CANCELED);
+     throw new FatalError(ISLAND.ERROR.E0027_CONSUMER_IS_CANCELED);
    }
 }

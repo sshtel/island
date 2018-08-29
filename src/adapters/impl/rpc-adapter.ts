@@ -17,11 +17,11 @@ export default class RPCAdapter extends ListenableAdapter<RPCService, RPCAdapter
     this.hooks = [];
   }
   async initialize(): Promise<void> {
-    if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
+    if (!this.options) throw new FatalError(ISLAND.ERROR.E0025_MISSING_ADAPTER_OPTIONS);
     this._adaptee = new RPCService(this.options.serviceName || 'unknownService');
     const amqpChannelPoolService = this.options.amqpChannelPoolAdapter.adaptee;
     if (!amqpChannelPoolService) {
-      throw new FatalError(ISLAND.FATAL.F0008_AMQP_CHANNEL_POOL_REQUIRED, 'AmqpChannelPoolService required');
+      throw new FatalError(ISLAND.ERROR.E0008_AMQP_CHANNEL_POOL_REQUIRED, 'AmqpChannelPoolService required');
     }
     const { consumerAmqpChannelPoolAdapter } = this.options;
     const consumerChannelPool = consumerAmqpChannelPoolAdapter && consumerAmqpChannelPoolAdapter.adaptee;

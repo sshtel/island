@@ -33,7 +33,7 @@ export default function paramSchemaInspector(req: RpcRequest) {
   const schema = req.options.schema.query.validation;
   if (schema) {
     const valid = validate(schema, req.msg);
-    if (!valid) throw new LogicError(ISLAND.LOGIC.L0002_WRONG_PARAMETER_SCHEMA, `Wrong parameter schema`);
+    if (!valid) throw new LogicError(ISLAND.ERROR.E0031_WRONG_PARAMETER_SCHEMA, `Wrong parameter schema`);
   }
   logger.debug(`RPC schema verified, RPC: ${req.name}`);
 }

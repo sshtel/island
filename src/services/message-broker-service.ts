@@ -26,7 +26,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (!this.roundRobinEventQ) {
-      throw new FatalError(ISLAND.FATAL.F0012_ROUND_ROBIN_EVENT_Q_IS_NOT_DEFINED, 'roundRobinEventQ is not defined');
+      throw new FatalError(ISLAND.ERROR.E0012_ROUND_ROBIN_EVENT_Q_IS_NOT_DEFINED, 'roundRobinEventQ is not defined');
     }
 
     await this.declareExchange(MessageBrokerService.EXCHANGE_NAME, 'topic', { durable: true });
@@ -87,7 +87,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
 
   private async checkInitialized(): Promise<void> {
 
-    if (!this.initialized) throw new FatalError(ISLAND.FATAL.F0013_NOT_INITIALIZED, 'not initialized');
+    if (!this.initialized) throw new FatalError(ISLAND.ERROR.E0013_NOT_INITIALIZED, 'not initialized');
 
   }
 
@@ -98,7 +98,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
         if (matcher.test(routingKey)) this.handlers[pattern](msg, routingKey);
       }).catch(e => {
         logger.debug('[handle msg error]', e);
-        const error: any = new LogicError(ISLAND.LOGIC.L0006_HANDLE_MESSAGE_ERROR, e.message);
+        const error: any = new LogicError(ISLAND.ERROR.E0034_HANDLE_MESSAGE_ERROR, e.message);
         logger.debug(error.stack);
         throw e;
       });
@@ -113,7 +113,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
   }
 
   private consumeQueues(handler: Handler, options?: any): Promise<IConsumerInfo[]> {
-    if (!this.initialized) return Promise.reject(new FatalError(ISLAND.FATAL.F0013_NOT_INITIALIZED, 'Not initialized'));
+    if (!this.initialized) return Promise.reject(new FatalError(ISLAND.ERROR.E0013_NOT_INITIALIZED, 'Not initialized'));
     return Promise.resolve(Bluebird.map([this.roundRobinEventQ, this.fanoutEventQ], queue => {
       return this._consume(queue, msg => {
         let decodedParams;
@@ -134,7 +134,7 @@ export default class MessageBrokerService extends AbstractBrokerService {
 
   private async cancelConsumes(consumeInfos: IConsumerInfo[]): Promise<void> {
     await this.checkInitialized();
-    if (!consumeInfos) throw new FatalError(ISLAND.FATAL.F0015_TAG_IS_UNDEFINED, 'Tag is undefined');
+    if (!consumeInfos) throw new FatalError(ISLAND.ERROR.E0015_TAG_IS_UNDEFINED, 'Tag is undefined');
     await Bluebird.map(consumeInfos, consumeInfo => this._cancel(consumeInfo));
   }
 }

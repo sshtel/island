@@ -24,7 +24,7 @@ export default class RedisConnectionAdapter extends AbstractAdapter<redis.RedisC
    * @override
    */
   public initialize() {
-    if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
+    if (!this.options) throw new FatalError(ISLAND.ERROR.E0025_MISSING_ADAPTER_OPTIONS);
     const options = this.options;
 
     return new Promise<void>((resolve, reject) => {

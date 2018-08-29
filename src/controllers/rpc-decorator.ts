@@ -39,7 +39,7 @@ export function rpcController(registerer?: {registerRpc: (name: string, value: a
         return this.server.register(v.name, v.handler.bind(this), 'rpc', v.options).then(() => {
           return registerer && registerer.registerRpc(v.name, v.options || {}) || Promise.resolve();
         }).catch(e => {
-          throw new FatalError(ISLAND.FATAL.F0028_CONSUL_ERROR, e.message);
+          throw new FatalError(ISLAND.ERROR.E0028_CONSUL_ERROR, e.message);
         });
       }));
       return _onInitialized.apply(this);

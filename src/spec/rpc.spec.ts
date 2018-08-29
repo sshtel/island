@@ -35,7 +35,7 @@ describe('RpcResponse', () => {
   });
 
   it('should understand an AbstractError object', () => {
-    const error = new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
+    const error = new FatalError(ISLAND.ERROR.E0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
     const json = JSON.stringify({result: false, body: error});
     expect(RpcResponse.decode(new Buffer(json)).body).toEqual(jasmine.any(AbstractFatalError));
   });
@@ -211,7 +211,7 @@ describe('RPC(isolated test)', () => {
 
     expect(() => {
       paramSchemaInspector(req);
-    }).toThrowError(/.*10010002-Wrong parameter schema.*/);
+    }).toThrowError(/.*10010031-Wrong parameter schema.*/);
   }));
 
   it('should unregister handlers if it failed to send a message', spec(async () => {
@@ -251,7 +251,7 @@ describe('RPC(isolated test)', () => {
 
   it('should show an extra info of an error', spec(async () => {
     await rpcService.register('hoho', req => {
-      throw new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
+      throw new FatalError(ISLAND.ERROR.E0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
     }, 'rpc');
     await rpcService.listen();
 
@@ -368,7 +368,7 @@ describe('RPC(isolated test)', () => {
   it('should keep original uuid through the RPCs', spec(async () => {
     let uuid;
     await rpcService.register('in', () => {
-      const e = new FatalError(ISLAND.FATAL.F0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
+      const e = new FatalError(ISLAND.ERROR.E0001_ISLET_ALREADY_HAS_BEEN_REGISTERED);
       uuid = e.extra.uuid;
       throw e;
     }, 'rpc');
@@ -446,7 +446,7 @@ describe('RPC(isolated test)', () => {
       await rpcServiceThird.unregisterAll();
 
       expect(e instanceof AbstractLogicError).toBeTruthy();
-      expect(e.code).toEqual(10010002); // UNKNOWN/ISLANDJS/0002/WRONG_PARAMETER_SCHEMA
+      expect(e.code).toEqual(10010031); // UNKNOWN/ISLANDJS/0002/WRONG_PARAMETER_SCHEMA
       expect(e.name).toEqual('LogicError');
       expect(e.extra.island).toBe('third-island');
       expect(e.extra.rpcName).toBe('third');

@@ -16,7 +16,7 @@ export default class MessagePack {
 
   constructor() {
     if (MessagePack.instance) {
-      throw new FatalError(ISLAND.FATAL.F0022_NOT_INITIALIZED_EXCEPTION,
+      throw new FatalError(ISLAND.ERROR.E0022_NOT_INITIALIZED_EXCEPTION,
                           'Error: Instantiation failed: Use getInst() instead of new.');
     }
     MessagePack.instance = this;
@@ -39,7 +39,7 @@ export default class MessagePack {
         }));
       }, (buf: Buffer) => {
         const errorObject = JSON.parse(buf.toString());
-        const err: any = new LogicError(ISLAND.LOGIC.L0004_MSG_PACK_ERROR, errorObject.message);
+        const err: any = new LogicError(ISLAND.ERROR.E0032_MSG_PACK_ERROR, errorObject.message);
         err.name = errorObject.name;
         err.stack = errorObject.stack;
         err.statusCode = errorObject.statusCode;
@@ -57,7 +57,7 @@ export default class MessagePack {
       return this.packer.encode(obj) as any as Buffer;
     } catch (e) {
       logger.debug('[MSG ENCODE ERROR]', e);
-      const error: any = new LogicError(ISLAND.LOGIC.L0005_MSG_PACK_ENCODE_ERROR, e.message);
+      const error: any = new LogicError(ISLAND.ERROR.E0033_MSG_PACK_ENCODE_ERROR, e.message);
       logger.debug(error.stack);
       throw e;
     }

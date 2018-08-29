@@ -48,7 +48,7 @@ export default class PushService {
     } catch (e) {
       e.formatType = SERIALIZE_FORMAT_PUSH;
       logger.debug('[JSON ENCODE ERROR]', e);
-      const error = new LogicError(ISLAND.LOGIC.L0007_PUSH_ENCODE_ERROR, e.message);
+      const error = new LogicError(ISLAND.ERROR.E0035_PUSH_ENCODE_ERROR, e.message);
       logger.debug(error.stack);
       throw e;
     }

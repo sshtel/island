@@ -18,7 +18,7 @@ export default class AbstractBrokerService {
   }
 
   public initialize(): Promise<void | never> {
-    return Promise.reject(new FatalError(ISLAND.FATAL.F0011_NOT_INITIALIZED_EXCEPTION, 'Not initialized exception'));
+    return Promise.reject(new FatalError(ISLAND.ERROR.E0011_NOT_INITIALIZED_EXCEPTION, 'Not initialized exception'));
   }
 
   protected declareExchange(name: string, type: string,

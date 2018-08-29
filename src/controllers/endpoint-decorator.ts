@@ -788,7 +788,7 @@ function throwIfRedeclared(name) {
   const [method, uri] = name.split(' ');
   if (!method || !uri) return;
   if (['GET', 'POST', 'PUT', 'DEL'].indexOf(method.toUpperCase()) > -1) {
-    throw new FatalError(ISLAND.FATAL.F0024_ENDPOINT_METHOD_REDECLARED);
+    throw new FatalError(ISLAND.ERROR.E0024_ENDPOINT_METHOD_REDECLARED);
   }
 }
 
@@ -853,7 +853,7 @@ export function endpointController(registerer?: {
         return this.server.register(v.name, v.handler.bind(this), 'endpoint').then(() => {
           return registerer && registerer.registerEndpoint(v.name, v.options || {}) || Promise.resolve();
         }).catch(e => {
-          throw new FatalError(ISLAND.FATAL.F0028_CONSUL_ERROR, e.message);
+          throw new FatalError(ISLAND.ERROR.E0028_CONSUL_ERROR, e.message);
         });
       }));
       return _onInitialized.apply(this);
