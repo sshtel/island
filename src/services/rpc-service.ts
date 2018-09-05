@@ -147,7 +147,7 @@ export class RPCService {
       channel => channel.assertQueue(this.responseQueueName, {
         durable: false,
         exclusive: true,
-        expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS + Environments.ISLAND_SERVICE_LOAD_TIME_MS
+        expires: Environments.ISLAND_RPC_MESSAGE_TTL_MS
       })
     );
 
@@ -242,11 +242,21 @@ export class RPCService {
     this.rpcEntities = {};
   }
 
-  public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata: boolean}): Promise<U>;
-  public async invoke(name: string, msg: any, opts?: {withRawdata: boolean}): Promise<any> {
+  public async invoke<T, U>(name: string, msg: T, opts?: {withRawdata?: boolean, timeout?: number}): Promise<U>;
+  public async invoke(name: string, msg: any,
+                      opts?: {withRawdata?: boolean, timeout?: number}): Promise<any> {
     name = name.trim();
     const routingKey = this.makeRoutingKey();
     const option = this.makeInvokeOption(name);
+    const startTime: number = _.get(option.headers, 'startTime') || +new Date();
+    const parent = _.get(option.headers, 'parent') || name;
+    const consumedTime: number = +new Date() - startTime;
+    const timeout: number = _.min([_.get(option.headers, 'timeout'), _.get(opts, 'timeout')])
+                            || Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+    const allowedExecTime: number = timeout - consumedTime;
+    option.headers = _.defaults({}, {timeout, startTime, parent}, option.headers);
+    if (this.isGuaranteedExecTime(allowedExecTime))
+      throw this.throwTimeout(name, option.correlationId!, allowedExecTime, parent, option.headers.tattoo);
     const p = this.waitResponse(option.correlationId!, (msg: Message) => {
       if (msg.properties && msg.properties.headers) {
         RouteLogger.replaceLogs('app', msg.properties.headers.extra.routeLogs);
@@ -257,11 +267,12 @@ export class RPCService {
       }
       const res = RpcResponse.decode(msg.content);
       if (res.result === false) throw res.body;
-      if (opts && opts.withRawdata) return { body: res.body, raw: msg.content };
+      if (_.get(opts, 'withRawdata')) return { body: res.body, raw: msg.content };
       return res.body;
     })
-      .timeout(Environments.ISLAND_RPC_WAIT_TIMEOUT_MS)
-      .catch(Bluebird.TimeoutError, () => this.throwTimeout(name, option.correlationId!))
+      .timeout(allowedExecTime)
+      .catch(Bluebird.TimeoutError, () => this.throwTimeout(name, option.correlationId!,
+                                                            allowedExecTime, parent, option.headers.tattoo))
       .catch(err => {
         err.tattoo = option.headers.tattoo;
         throw err;
@@ -274,7 +285,7 @@ export class RPCService {
       this.waitingResponse[option.correlationId!].reject(e);
       this.waitingResponse = _.omit(this.waitingResponse, option.correlationId!);
     }
-    return await p;
+    return p;
   }
 
   // There are two kind of consumes - get requested / get a response
@@ -306,17 +317,28 @@ export class RPCService {
     return { channel, tag: result.consumerTag, key, consumer };
   }
 
-  private throwTimeout(name, corrId: string) {
+  private isGuaranteedExecTime(allowedExecTime: number): boolean {
+    return allowedExecTime - Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS <= 0;
+  }
+
+  private throwTimeout(name, corrId: string, waitTime: number, parent: string, tattoo: any) {
     this.waitingResponse = _.omit(this.waitingResponse, corrId);
     this.timedOut[corrId] = name;
     this.timedOutOrdered.push(corrId);
     if (20 < this.timedOutOrdered.length) {
       this.timedOut = _.omit(this.timedOut, this.timedOutOrdered.shift()!);
     }
+    throw this.makeTimeoutError(name, waitTime, parent, tattoo);
+  }
+
+  private makeTimeoutError(name: string, waitTime: number, parent: string,
+                           tattoo: any, location: string = 'invoke') {
     const err = new FatalError(ISLAND.ERROR.E0023_RPC_TIMEOUT,
-                               `RPC(${name}) does not return in ${Environments.ISLAND_RPC_WAIT_TIMEOUT_MS} ms`);
+      `RPC(${name}) does not return in ${waitTime} ms (${location})`);
     err.statusCode = 504;
-    throw err;
+    err.tattoo = tattoo;
+    err.extra = { waitTime, parent, location };
+    return this.attachExtraError(err, name, {});
   }
 
   private shutdown() {
@@ -440,7 +462,6 @@ export class RPCService {
     RouteLogger.saveLog({ clsNameSpace: 'app', context: name, type: 'req', protocol: 'RPC', correlationId });
     return {
       correlationId,
-      expiration: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS,
       headers: this.makeInvokeHeader(),
       replyTo: this.responseQueueName,
       timestamp: +(new Date())
@@ -450,7 +471,10 @@ export class RPCService {
   private makeInvokeHeader(): any {
     const ns = cls.getNamespace('app');
     return {
-      tattoo: ns.get('RequestTrackId'),
+      tattoo: ns.get('tattoo'),
+      startTime: ns.get('startTime'),
+      timeout: ns.get('timeout'),
+      parent: ns.get('parent'),
       from: {
         node: Environments.getHostName(),
         context: ns.get('Context'),
@@ -465,7 +489,7 @@ export class RPCService {
   }
 
   // 503(Service Temporarily Unavailable) 오류일 때는 응답을 caller에게 안보내줘야함
-  private async earlyThrowWith503(rpcName, err, msg) {
+  private async earlyThrowWith503(err) {
     // Requeue the message when it has a chance
     if (this.is503(err)) throw err;
     return err;
@@ -485,7 +509,7 @@ export class RPCService {
   }
 
   private attachExtraError(err: AbstractError, rpcName: string, req: any) {
-    err.code = err.code || AbstractError.mergeCode(getIslandCode(), IslandLevel.UNKNOWN, 0);
+    err.code = err.code || AbstractError.mergeCode(getIslandCode(), IslandLevel.UNKNOWN, err.code % 10000 || 0);
     err.extra = _.defaults({}, err.extra, { island: this.serviceName, rpcName, req });
     err.extra = AbstractError.ensureUuid(err.extra);
     return err;
@@ -518,8 +542,8 @@ export class RPCService {
   }
 
   // enter continuation-local-storage scope
-  private enterCLS(tattoo, rpcName, extra, func) {
-    const properties = _.merge({ RequestTrackId: tattoo, Context: rpcName, Type: 'rpc' }, extra);
+  private enterCLS(rpcName, extra, func) {
+    const properties = _.merge({ Context: rpcName, Type: 'rpc' }, extra);
     return new Promise((resolve, reject) => {
       const ns = cls.getNamespace('app');
       ns.run(() => {
@@ -552,8 +576,7 @@ export class RPCService {
       await Promise.all(_.map(queues, async (queue: string) => {
         await channel.assertQueue(queue,
                                   { durable: false,
-                                    expires: Environments.ISLAND_RPC_WAIT_TIMEOUT_MS +
-                                             Environments.ISLAND_SERVICE_LOAD_TIME_MS
+                                    expires: Environments.ISLAND_RPC_MESSAGE_TTL_MS
                                   });
       }));
     });
@@ -572,9 +595,9 @@ export class RPCService {
       return _.map(queues, queue => ({ queue, rpcName, routingKey: _.last(queue.split('.')) } ));
     }));
     await this.consumerChannelPool.usingChannel(async channel => {
-      await Promise.all(_.map(bindInfos, async ({queue, rpcName, routingKey}) => {
-        await channel.bindQueue(queue, rpcName, routingKey!);
-      }));
+      await Promise.all(_.map(bindInfos, async ({queue, rpcName, routingKey}) =>
+        await channel.bindQueue(queue, rpcName, routingKey!)
+      ));
     });
   }
 
@@ -607,10 +630,18 @@ export class RPCService {
       const { replyTo, headers, correlationId, timestamp } = msg.properties;
       if (!replyTo) throw new FatalError(ISLAND.ERROR.E0026_MISSING_REPLYTO_IN_RPC);
 
-      const tattoo = headers && headers.tattoo;
-      const extra = headers && headers.extra || {};
+      const startTime = _.get(headers, 'startTime') || +new Date();
+      const timeout = _.get(headers, 'timeout') || Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+      const tattoo = _.get(headers, 'tattoo');
+      const parent = _.get(headers, 'parent');
+      const consumedTime = +new Date() - startTime;
+      const allowedExecTime: number = timeout - consumedTime - Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS;
+      const extra = _.merge(_.get(headers, 'extra') || {}, { startTime, timeout: allowedExecTime, tattoo, parent });
+      if (allowedExecTime < 0)
+        throw this.makeTimeoutError(rpcName, allowedExecTime, parent, tattoo, 'consume');
+
       this.determineFlowControl(shard, timestamp, extra);
-      return this.enterCLS(tattoo, rpcName, extra, async () => {
+      return this.enterCLS(rpcName, extra, async () => {
         const options = { correlationId, headers };
         const parsed = JSON.parse(msg.content.toString('utf8'), RpcResponse.reviver);
         const requestId: string = collector.collectRequestAndReceivedTime(type, rpcName, { msg, shard });
@@ -624,10 +655,13 @@ export class RPCService {
             .then(res => sanitizeAndValidateResult(res, rpcName, rpcOptions))
             .then(res => this.reply(replyTo, res, options))
             .tap (res => logger.debug(`[RPC][RESP] ${JSON.stringify(res, null, 2)} ${type}, ${rpcName}`))
-            .timeout(Environments.ISLAND_RPC_EXEC_TIMEOUT_MS);
+            .timeout(allowedExecTime);
         } catch (err) {
           await Bluebird.resolve(err)
-            .then(err => this.earlyThrowWith503(rpcName, err, msg))
+            .then(err =>
+              err.name === 'TimeoutError'
+              && this.makeTimeoutError(rpcName, allowedExecTime, parent, tattoo, 'consume') || err)
+            .then(err => this.earlyThrowWith503(err))
             .then(err => this.dohook('pre-error', type, err))
             .then(err => this.attachExtraError(err, rpcName, parsed))
             .then(err => this.reply(replyTo, err, options))

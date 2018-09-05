@@ -65,7 +65,6 @@ export class RouteLogger {
   }
 
   static replaceLogs(clsNameSpace, routeLogs: RouteLog[]): void {
-    // console.log('replaceLogs', routeLogs);
     if (!RouteLogger.isEnabled()) return;
 
     const ns = cls.getNamespace(clsNameSpace);

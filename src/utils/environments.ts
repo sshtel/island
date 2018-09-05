@@ -39,19 +39,15 @@ export class IslandEnvironments {
   @env()
   public ISLAND_RPC_EXEC_TIMEOUT_MS: number = 0;
 
-  // Timeout during RPC call
+  // RPC Message TTL
   @env()
-  public ISLAND_RPC_WAIT_TIMEOUT: string = '60s';
-  // deprecated
-  @env()
-  public ISLAND_RPC_WAIT_TIMEOUT_MS: number = 0;
+  public ISLAND_RPC_MESSAGE_TTL: string = '60s';
+  public ISLAND_RPC_MESSAGE_TTL_MS: number;
 
-  // Time to load service
+  // Reply addition time By RPC Depth
   @env()
-  public ISLAND_SERVICE_LOAD_TIME: string = '60s';
-  // deprecated
-  @env()
-  public ISLAND_SERVICE_LOAD_TIME_MS: number = 0;
+  public ISLAND_RPC_REPLY_MARGIN_TIME: string = '1s';
+  public ISLAND_RPC_REPLY_MARGIN_TIME_MS: number;
 
   // Log level for logger
   @env({ eq: ['debug', 'info', 'notice', 'warning', 'error', 'crit'] })
@@ -177,12 +173,7 @@ export class IslandEnvironments {
     this.ISLAND_RPC_EXEC_TIMEOUT_MS = this.ISLAND_RPC_EXEC_TIMEOUT_MS === 0
                                       ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
                                       : this.ISLAND_RPC_EXEC_TIMEOUT_MS;
-    this.ISLAND_RPC_WAIT_TIMEOUT_MS = this.ISLAND_RPC_WAIT_TIMEOUT_MS === 0
-                                      ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
-                                      : this.ISLAND_RPC_WAIT_TIMEOUT_MS;
-    this.ISLAND_SERVICE_LOAD_TIME_MS = this.ISLAND_SERVICE_LOAD_TIME_MS === 0
-                                       ? ms(this.ISLAND_SERVICE_LOAD_TIME)
-                                       : this.ISLAND_SERVICE_LOAD_TIME_MS;
+    this.ISLAND_RPC_MESSAGE_TTL_MS = ms(this.ISLAND_RPC_MESSAGE_TTL);
     this.ISLAND_STATUS_EXPORT_TIME_MS = this.ISLAND_STATUS_EXPORT_TIME_MS === 0
                                         ? ms(this.ISLAND_STATUS_EXPORT_TIME)
                                         : this.ISLAND_STATUS_EXPORT_TIME_MS;
@@ -192,6 +183,7 @@ export class IslandEnvironments {
     this.ISLAND_FLOWMODE_DELAY = this.ISLAND_FLOWMODE_DELAY === 0
                                  ? ms(this.ISLAND_FLOWMODE_DELAY_TIME)
                                  : this.ISLAND_FLOWMODE_DELAY;
+    this.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ms(this.ISLAND_RPC_REPLY_MARGIN_TIME);
     LoadEnv(this);
   }
 
@@ -221,14 +213,6 @@ export class IslandEnvironments {
 
   public getIslandRpcExecTimeoutMs(): number {
     return this.ISLAND_RPC_EXEC_TIMEOUT_MS;
-  }
-
-  public getIslandRpcWaitTimeoutMs(): number {
-    return this.ISLAND_RPC_WAIT_TIMEOUT_MS;
-  }
-
-  public getIslandServiceLoadTimeMs(): number {
-    return this.ISLAND_SERVICE_LOAD_TIME_MS;
   }
 
   public isIslandRpcResNoack(): boolean {

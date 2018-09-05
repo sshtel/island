@@ -48,8 +48,6 @@ const defaultSchemaStorage = new SchemaStorage();
 function makeDecorator(optionalSchema?: any) {
   return (object: Object, propertyName: string) => {
     const metadata = Reflect.getMetadata('design:type', object, propertyName);
-    // console.log(`${propertyName} props: ${Object.getOwnPropertyNames(metadata)}`);
-
     let type = '';
     switch (metadata.name) {
       case 'String':

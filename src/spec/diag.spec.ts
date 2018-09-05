@@ -107,14 +107,17 @@ describe('RPC Diag', () => {
   let amqpChannelPool;
   let rpcService: RPCService;
   const fileName = 'haha.txt.proc';
-  const oldTimeout = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
+  const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
+  const ISLAND_RPC_REPLY_MARGIN_TIME_MS = Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS;
 
   beforeAll(spec(async () => {
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 600;
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 600;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = 0;
   }));
 
   afterAll(spec(async () => {
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = oldTimeout;
+    Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ISLAND_RPC_REPLY_MARGIN_TIME_MS;
   }));
 
   beforeEach(spec(async () => {

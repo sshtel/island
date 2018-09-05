@@ -93,6 +93,7 @@ export class AbstractError extends Error {
   public statusCode: number;
   public stack: any;
   public extra: any;
+  public tattoo: any;
 
   constructor(islandCode: number,
               islandLevel: IslandLevel,
