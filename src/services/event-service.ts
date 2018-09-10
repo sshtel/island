@@ -171,7 +171,7 @@ export class EventService {
     const ns = cls.getNamespace('app');
     return {
       headers: {
-        tattoo: ns.get('RequestTrackId'),
+        tattoo: ns.get('tattoo'),
         from: {
           node: Environments.getHostName(),
           context: ns.get('Context'),
@@ -260,7 +260,7 @@ export class EventService {
     const content = await this.dohook(EventHookType.EVENT, JSON.parse(msg.content.toString('utf8'), reviver));
     const subscribers = this.subscribers.filter(subscriber => subscriber.isRoutingKeyMatched(msg.fields.routingKey));
     const promise = Bluebird.map(subscribers, subscriber => {
-      const clsProperties = _.merge({ RequestTrackId: tattoo, Context: msg.fields.routingKey, Type: 'event' },
+      const clsProperties = _.merge({ tattoo, Context: msg.fields.routingKey, Type: 'event' },
                                     extra);
       return enterScope(clsProperties, () => {
         if (!this.ignoreEventLogRegexp || !msg.fields.routingKey.match(this.ignoreEventLogRegexp)) {
