@@ -9,7 +9,14 @@ import paramSchemaInspector from '../middleware/schema.middleware';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { RpcHookType, RpcRequest, RpcResponse, RPCService } from '../services/rpc-service';
 import { Environments } from '../utils/environments';
-import { AbstractEtcError, AbstractFatalError, AbstractLogicError, FatalError, ISLAND } from '../utils/error';
+import {
+  AbstractError,
+  AbstractEtcError,
+  AbstractFatalError,
+  AbstractLogicError,
+  FatalError,
+  ISLAND
+} from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 import { logger } from '../utils/logger';
 import { RpcOptions } from '../utils/rpc-request';
@@ -45,25 +52,25 @@ describe('RPC(isolated test)', () => {
   const rpcService = new RPCService('haha');
   const amqpChannelPool = new AmqpChannelPoolService();
   const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
-  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
-  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_RPC_MESSAGE_TTL_MS = Environments.ISLAND_RPC_MESSAGE_TTL_MS;
   const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
   const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+  const ISLAND_RPC_REPLY_MARGIN_TIME_MS = Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS;
 
   beforeAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = 3000;
     Environments.ISLAND_STATUS_EXPORT = true;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = 100;
   }));
 
   afterAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = ISLAND_RPC_MESSAGE_TTL_MS;
     Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ISLAND_RPC_REPLY_MARGIN_TIME_MS;
   }));
 
   beforeEach(spec(async () => {
@@ -135,10 +142,13 @@ describe('RPC(isolated test)', () => {
     try {
       await rpcService.invoke<string, string>('testMethod', 'hello');
     } catch (e) {
-      expect(e instanceof AbstractEtcError).toBeTruthy();
-      expect(e.code).toEqual(10020001);
-      expect(e.name).toEqual('TimeoutError');
-      expect(e.reason).toEqual('operation timed out');
+      expect(e instanceof AbstractError).toBeTruthy();
+      expect(e.code).toEqual(10010023);
+      expect(e.name).toEqual('FatalError');
+      expect(e.extra.island).toBe('haha');
+      expect(e.extra.rpcName).toBe('testMethod');
+      expect(e.extra.parent).toBe('testMethod');
+      expect(e.extra.location).toEqual('consume');
       expect(e.extra.uuid).not.toBeFalsy();
     }
     await rpcService.unregisterAll();
@@ -224,7 +234,7 @@ describe('RPC(isolated test)', () => {
 
     try {
       await rpcService.invoke<string, string>('testMethod', 'hello');
-      expect(true).toEqual(false);
+      fail();
     } catch (e) {
       expect(e.message).toEqual('haha');
     }
@@ -242,7 +252,7 @@ describe('RPC(isolated test)', () => {
     await amqpChannelPool.initialize({ url });
     await rpcService.initialize(amqpChannelPool);
     const p = rpcService.invoke<string, string>('testMethod3', 'hello');
-    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_WAIT_TIMEOUT_MS as string, 10) / 2);
+    await Bluebird.delay(parseInt(process.env.ISLAND_RPC_MESSAGE_TTL_MS as string, 10) / 2);
     await rpcService.register('testMethod3', msg => Promise.resolve('world'), 'rpc');
     await rpcService.listen();
     const res = await p;
@@ -300,6 +310,7 @@ describe('RPC(isolated test)', () => {
     }, 'rpc');
     await rpcService.listen();
     await rpcService.invoke('testMethod', 'hello').catch(e => e);
+    await Bluebird.resolve().delay(1000);
     expect(called).toBeGreaterThanOrEqual(2);
   }));
 
@@ -439,8 +450,7 @@ describe('RPC(isolated test)', () => {
     await rpcService.listen();
 
     try {
-      const p = await rpcServiceSecond.invoke<string, string>('first', 'hello');
-      console.log(p);
+      await rpcServiceSecond.invoke<string, string>('first', 'hello');
     } catch (e) {
       await rpcServiceSecond.unregisterAll();
       await rpcServiceThird.unregisterAll();
@@ -510,25 +520,25 @@ describe('RPC(isolated test)', () => {
 
 describe('RPC excluded reviver', async () => {
   const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
-  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
-  const ISLAND_SERVICE_LOAD_TIME_MS = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_RPC_MESSAGE_TTL_MS = Environments.ISLAND_RPC_MESSAGE_TTL_MS;
   const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
   const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+  const ISLAND_RPC_REPLY_MARGIN_TIME_MS = Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS;
 
   beforeAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = 3000;
     Environments.ISLAND_STATUS_EXPORT = true;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = 0;
   }));
 
   afterAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = ISLAND_RPC_MESSAGE_TTL_MS;
     Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ISLAND_RPC_REPLY_MARGIN_TIME_MS;
   }));
 
   const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
@@ -573,25 +583,25 @@ describe('RPC excluded reviver', async () => {
 
 describe('RPC-hook', () => {
   const ISLAND_RPC_EXEC_TIMEOUT_MS = Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
-  const ISLAND_RPC_WAIT_TIMEOUT_MS = Environments.ISLAND_RPC_WAIT_TIMEOUT_MS;
-  const ISLAND_SERVICE_LOAD_TIME_MS  = Environments.ISLAND_SERVICE_LOAD_TIME_MS;
+  const ISLAND_RPC_MESSAGE_TTL_MS = Environments.ISLAND_RPC_MESSAGE_TTL_MS;
   const ISLAND_STATUS_EXPORT = Environments.ISLAND_STATUS_EXPORT;
   const ISLAND_STATUS_EXPORT_TIME_MS = Environments.ISLAND_STATUS_EXPORT_TIME_MS;
+  const ISLAND_RPC_REPLY_MARGIN_TIME_MS = Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS;
 
   beforeAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = 1000;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = 3000;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = 1000;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = 3000;
     Environments.ISLAND_STATUS_EXPORT = true;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = 3000;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = 0;
   }));
 
   afterAll(spec(async () => {
     Environments.ISLAND_RPC_EXEC_TIMEOUT_MS = ISLAND_RPC_EXEC_TIMEOUT_MS;
-    Environments.ISLAND_RPC_WAIT_TIMEOUT_MS = ISLAND_RPC_WAIT_TIMEOUT_MS;
-    Environments.ISLAND_SERVICE_LOAD_TIME_MS = ISLAND_SERVICE_LOAD_TIME_MS;
+    Environments.ISLAND_RPC_MESSAGE_TTL_MS = ISLAND_RPC_MESSAGE_TTL_MS;
     Environments.ISLAND_STATUS_EXPORT = ISLAND_STATUS_EXPORT;
     Environments.ISLAND_STATUS_EXPORT_TIME_MS = ISLAND_STATUS_EXPORT_TIME_MS;
+    Environments.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ISLAND_RPC_REPLY_MARGIN_TIME_MS;
   }));
 
   const url = process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672';
@@ -673,7 +683,7 @@ describe('RPC-hook', () => {
 
     try {
       await rpcService.invoke('world', 'hello');
-      expect(true).toEqual(false);
+      fail();
     } catch (e) {
       expect(e.message).toMatch(/custom error/);
       expect(e.extra.message).toEqual('pre-hooked');
@@ -698,7 +708,7 @@ describe('RPC-hook', () => {
 
     try {
       await rpcService.invoke('world', 'hello');
-      expect(true).toEqual(false);
+      fail();
     } catch (e) {
       await Bluebird.delay(1);
       expect(e.extra.message).toEqual('pre-hooked');
