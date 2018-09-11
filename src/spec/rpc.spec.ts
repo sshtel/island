@@ -309,8 +309,7 @@ describe('RPC(isolated test)', () => {
       throw e;
     }, 'rpc');
     await rpcService.listen();
-    await rpcService.invoke('testMethod', 'hello').catch(e => e);
-    await Bluebird.resolve().delay(1000);
+    await rpcService.invoke('testMethod', 'hello', { timeout: 3000 }).catch(e => e);
     expect(called).toBeGreaterThanOrEqual(2);
   }));
 
