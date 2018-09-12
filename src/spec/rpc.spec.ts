@@ -238,7 +238,7 @@ describe('RPC(isolated test)', () => {
     } catch (e) {
       expect(e.message).toEqual('haha');
     }
-    expect((rpcService as any).waitingResponse).toEqual({});
+    expect(((rpcService as any).waitingResponse as Map<any, any>).size).toEqual(0);
     amqpChannelPool.usingChannel = usingChannel;
   }));
 
@@ -309,8 +309,7 @@ describe('RPC(isolated test)', () => {
       throw e;
     }, 'rpc');
     await rpcService.listen();
-    await rpcService.invoke('testMethod', 'hello').catch(e => e);
-    await Bluebird.resolve().delay(1000);
+    await rpcService.invoke('testMethod', 'hello', {timeout: 3000}).catch(e => e);
     expect(called).toBeGreaterThanOrEqual(2);
   }));
 

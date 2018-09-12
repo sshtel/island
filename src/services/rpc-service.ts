@@ -103,14 +103,14 @@ function nackWithDelay(channel, msg) {
 type DeferredResponse = { resolve: (msg: Message) => any, reject: (e: Error) => any };
 
 interface SystemDiagnosisPayload {
- fileName: string;
+  fileName: string;
   cmd: string;
   args: DiagRpcArgs;
 }
 export class RPCService {
   private requestConsumerInfo: IConsumerInfo[] = [];
   private responseQueueName: string;
-  private waitingResponse: { [corrId: string]: DeferredResponse } = {};
+  private waitingResponse: Map<string, DeferredResponse> = new Map();
   private timedOut: { [corrId: string]: string } = {};
   private timedOutOrdered: string[] = [];
   private channelPool: AmqpChannelPoolService;
@@ -282,8 +282,10 @@ export class RPCService {
     try {
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
-      this.waitingResponse[option.correlationId!].reject(e);
-      this.waitingResponse = _.omit(this.waitingResponse, option.correlationId!);
+      if (this.waitingResponse.has(option.correlationId!)) {
+        this.waitingResponse.get(option.correlationId!)!.reject(e);
+        this.waitingResponse.delete(option.correlationId!);
+      }
     }
     return p;
   }
@@ -322,7 +324,7 @@ export class RPCService {
   }
 
   private throwTimeout(name, corrId: string, waitTime: number, parent: string, tattoo: any) {
-    this.waitingResponse = _.omit(this.waitingResponse, corrId);
+    this.waitingResponse.delete(corrId);
     this.timedOut[corrId] = name;
     this.timedOutOrdered.push(corrId);
     if (20 < this.timedOutOrdered.length) {
@@ -386,12 +388,12 @@ export class RPCService {
         logger.warning(`Got a response of \`${name}\` after timed out - ${correlationId}`);
         return;
       }
-      const waiting = this.waitingResponse[correlationId];
+      const waiting = this.waitingResponse.get(correlationId);
       if (!waiting) {
         logger.notice(`Got an unknown response - ${correlationId}`);
         return;
       }
-      this.waitingResponse = _.omit(this.waitingResponse, correlationId);
+      this.waitingResponse.delete(correlationId);
       return waiting.resolve(msg);
     }, Environments.ISLAND_RPC_RES_NOACK);
   }
@@ -447,10 +449,10 @@ export class RPCService {
 
   private waitResponse(corrId: string, handleResponse: (msg: Message) => any) {
     return new Bluebird((resolve, reject) => {
-      this.waitingResponse[corrId] = { resolve, reject };
+      this.waitingResponse.set(corrId, { resolve, reject });
     }).then((msg: Message) => {
       const clsScoped = cls.getNamespace('app').bind((msg: Message) => {
-        this.waitingResponse = _.omit(this.waitingResponse, corrId);
+        this.waitingResponse.delete(corrId);
         return handleResponse(msg);
       });
       return clsScoped(msg);
