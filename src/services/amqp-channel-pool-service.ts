@@ -53,7 +53,6 @@ export class AmqpChannelPoolService {
   }
 
   async purge(): Promise<void> {
-    this.idleChannelLength = 0;
     this.idleChannels = [];
     return this.connection && this.connection.close();
   }
@@ -100,10 +99,10 @@ export class AmqpChannelPoolService {
         if (err.stack) {
           logger.debug(err.stack);
         }
-        _.remove(this.idleChannels, channel);
       })
       .on('close', () => {
         _.remove(this.idleChannels, channel);
+        --this.idleChannelLength;
       });
   }
 }
