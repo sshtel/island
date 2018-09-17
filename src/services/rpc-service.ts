@@ -642,4 +642,3 @@ export class RPCService {
      throw new FatalError(ISLAND.FATAL.F0027_CONSUMER_IS_CANCELED);
    }
 }
-
