@@ -123,6 +123,10 @@ export default class Islet {
     return !this.onGoingStatus;
   }
 
+  public isDestroyed() {
+    return !this.onGoingStatus;
+  }
+
   protected onPrepare() {}
   protected onInitialized() {}
   protected onDestroy() {
