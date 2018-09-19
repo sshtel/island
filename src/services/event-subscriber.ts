@@ -117,9 +117,9 @@ export class PatternSubscriber extends Subscriber {
 
   private convertRoutingKeyPatternToRegexp(pattern: string): RegExp {
     const regexPattern = pattern
-      .replace('.', '\\.')        // dot(.) is separator
-      .replace('*', '\\w+')       // star(*) means one word exactly
-      .replace('#', '[\\w\\.]*'); // hash(#) means zero or more words, including dot(.)
+      .replace(/\./gi, '\\.')        // dot(.) is separator
+      .replace(/\*/gi, '\\w+')       // star(*) means one word exactly
+      .replace(/\#/gi, '[\\w\\.]*');  // hash(#) means zero or more words, including dot(.)
     return new RegExp(`^${regexPattern}$`);
   }
 }
