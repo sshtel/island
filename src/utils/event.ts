@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import { Loggers } from 'island-loggers';
 import { BaseEvent, Event, EventHandler, SubscriptionOptions } from '../services/event-subscriber';
+import { Endpoints, information } from './information';
 import { collector } from './status-collector';
 
 export interface EventSubscription<T extends Event<U>, U> {
@@ -29,6 +30,26 @@ export namespace Events {
       args: string[];
       fileName: string;
     }
+
+    export interface SystemHealthCheck {
+    }
+
+    export interface SystemInfo {
+      name: string;
+      version: string;
+      checksum: string;
+    }
+
+    export interface SystemEndpointInfo {
+      name: string;
+      version: string;
+      checksum: string;
+      endpoints: Endpoints;
+    }
+
+    export interface SystemEndpointCheck {
+      name: string;
+    }
   }
 
   export class LoggerLevelChanged extends BaseEvent<Arguments.LoggerLevelChanged> {
@@ -52,6 +73,30 @@ export namespace Events {
   export class SystemDiagnosis extends BaseEvent<Arguments.SystemDiagnosis> {
     constructor(args: Arguments.SystemDiagnosis) {
       super('system.diagnosis', args);
+    }
+  }
+
+  export class SystemHealthCheck extends BaseEvent<Arguments.SystemHealthCheck> {
+    constructor(args: Arguments.SystemHealthCheck) {
+      super('system.health.check', args);
+    }
+  }
+
+  export class SystemInfo extends BaseEvent<Arguments.SystemInfo> {
+    constructor(args: Arguments.SystemInfo) {
+      super('system.info.checked', args);
+    }
+  }
+
+  export class SystemEndpointInfo extends BaseEvent<Arguments.SystemEndpointInfo> {
+    constructor(args: Arguments.SystemEndpointInfo) {
+      super('system.endpoint.checked', args);
+    }
+  }
+
+  export class SystemEndpointCheck extends BaseEvent<Arguments.SystemEndpointCheck> {
+    constructor(args: Arguments.SystemEndpointCheck) {
+      super('system.endpoint.check', args);
     }
   }
 }
@@ -87,5 +132,18 @@ export const DEFAULT_SUBSCRIPTIONS: EventSubscription<Event<any>, any>[] = [{
       }
     },
     options: {everyNodeListen: true}
+  }, {
+    eventClass: Events.SystemHealthCheck,
+    handler: async (event: Events.SystemHealthCheck) => {
+      if (!information.isSynced()) return;
+      this.publishEvent(new Events.SystemInfo(information.getSystemInfo()));
+    }
+  }, {
+    eventClass: Events.SystemHealthCheck,
+    handler: async (event: Events.SystemEndpointCheck) => {
+      const info = information.getSystemInfo();
+      if (event.args.name !== info.name || !information.isSynced()) return;
+      this.publishEvent(new Events.SystemEndpointInfo(information.getEndpoints()));
+    }
   }
 ];

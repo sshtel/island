@@ -163,6 +163,8 @@ export class IslandEnvironments {
   @env()
   public ISLAND_FLOWMODE_DELAY: number = 0;
 
+  public VERSION: string = 'unknown';
+
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
 
@@ -184,6 +186,8 @@ export class IslandEnvironments {
                                  ? ms(this.ISLAND_FLOWMODE_DELAY_TIME)
                                  : this.ISLAND_FLOWMODE_DELAY;
     this.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ms(this.ISLAND_RPC_REPLY_MARGIN_TIME);
+
+    this.setIslandInfoFromPackageJson();
     LoadEnv(this);
   }
 
@@ -195,8 +199,12 @@ export class IslandEnvironments {
     return this.ISLAND_HOST_NAME;
   }
 
-  public getServiceName(): string | undefined {
+  public getServiceName(): string {
     return this.ISLAND_SERVICE_NAME;
+  }
+
+  public getIslandVersion(): string {
+    return this.VERSION;
   }
 
   public getEventPrefetch(): number {
@@ -285,6 +293,26 @@ export class IslandEnvironments {
 
   public getFlowModeDelay(): number {
     return this.ISLAND_FLOWMODE_DELAY;
+  }
+
+  private setIslandInfoFromPackageJson(): void {
+    const execPath = this.getExecPath();
+    if (!execPath) return;
+    try {
+      const pkg = require(`${execPath}package.json`);
+      this.VERSION = pkg.version || this.VERSION;
+      this.ISLAND_SERVICE_NAME = pkg.name || this.ISLAND_SERVICE_NAME;
+    } catch (e) {
+      console.info('did not get info From package.json');
+    }
+  }
+
+  private getExecPath() {
+    const dirName = __dirname;
+    if (dirName.indexOf('node_modules/') > -1)
+      return dirName.substr(0, dirName.indexOf('node_modules/'));
+    if (dirName.indexOf('island/') > -1)
+      return dirName.substr(0, dirName.indexOf('island/') + 7);
   }
 }
 

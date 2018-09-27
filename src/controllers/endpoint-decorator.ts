@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import { Environments } from '../utils/environments';
 import { FatalError, ISLAND } from '../utils/error';
+import { information } from '../utils/information';
 
 export enum EnsureOptions {
   TOKEN = 1,
@@ -832,6 +833,7 @@ export function endpointController(registerer?: {
       if (_listen && !_listen.isRegister) {
         // tslint:disable-next-line
         this._server.listen = async function () {
+          information.saveEndpoint();
           if (registerer) {
             await registerer.saveEndpoint();
           }
@@ -851,6 +853,7 @@ export function endpointController(registerer?: {
         if (Environments.getEndpointSessionGroup() && !v.options.sessionGroup)
           v.options.sessionGroup = Environments.getEndpointSessionGroup();
         return this.server.register(v.name, v.handler.bind(this), 'endpoint').then(() => {
+          information.registerEndpoint(v.name, v.options);
           return registerer && registerer.registerEndpoint(v.name, v.options || {}) || Promise.resolve();
         }).catch(e => {
           throw new FatalError(ISLAND.ERROR.E0028_CONSUL_ERROR, e.message);
