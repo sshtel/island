@@ -1,5 +1,6 @@
 import { cls } from 'island-loggers';
 
+import { Event, BaseEvent } from 'island-types';
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
 import * as fs from 'fs';
@@ -14,8 +15,6 @@ import { RouteLogger } from '../utils/route-logger';
 import { collector } from '../utils/status-collector';
 import { AmqpChannelPoolService } from './amqp-channel-pool-service';
 import {
-  BaseEvent,
-  Event,
   EventHandler,
   EventSubscriber,
   Message,

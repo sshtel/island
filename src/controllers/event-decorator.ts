@@ -1,6 +1,7 @@
 import * as Bluebird from 'bluebird';
+import { Event } from 'island-types';
 
-import { Event, EventHandler, SubscriptionOptions } from '../services/event-subscriber';
+import { EventHandler, SubscriptionOptions } from '../services/event-subscriber';
 import { EventSubscription } from '../utils/event';
 import AbstractController from './abstract-controller';
 

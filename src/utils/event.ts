@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import { Loggers } from 'island-loggers';
-import { BaseEvent, Event, EventHandler, SubscriptionOptions } from '../services/event-subscriber';
+import { BaseEvent, Event } from 'island-types';
+
+import { EventHandler, SubscriptionOptions } from '../services/event-subscriber';
 import { Endpoints, information } from './information';
 import { collector } from './status-collector';
 

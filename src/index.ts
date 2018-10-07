@@ -3,6 +3,8 @@ require('source-map-support').install();
 // Don't change the order;
 export { Loggers, cls } from 'island-loggers';
 
+export { Event, BaseEvent } from 'island-types';
+
 export import mongoose = require('mongoose');
 mongoose.Promise = Promise as any;
 
@@ -74,7 +76,6 @@ export {
 } from './services/abstract-broker-service';
 export { AmqpChannelPoolService, AmqpOptions } from './services/amqp-channel-pool-service';
 export { EventService } from './services/event-service';
-export { Event, BaseEvent } from './services/event-subscriber';
 
 // utils
 export { Environments } from './utils/environments';

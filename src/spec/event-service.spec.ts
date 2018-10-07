@@ -1,6 +1,8 @@
+import { BaseEvent, DebugEvent } from 'island-types';
+
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { EventHookType, EventService } from '../services/event-service';
-import { BaseEvent, DebugEvent, PatternSubscriber } from '../services/event-subscriber';
+import { PatternSubscriber } from '../services/event-subscriber';
 import { Environments } from '../utils/environments';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 
