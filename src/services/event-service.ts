@@ -1,9 +1,9 @@
 import { cls } from 'island-loggers';
 
-import { Event, BaseEvent } from 'island-types';
 import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
 import * as fs from 'fs';
+import { BaseEvent, Event } from 'island-types';
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 
@@ -103,7 +103,8 @@ export class EventService {
   }
 
   async purge(): Promise<any> {
-    fs.unlinkSync('./event.proc');
+    try { fs.unlinkSync('./event.proc'); } catch (_e) {}
+    logger.info('stop serving event');
     this.hooks = {};
     if (!this.consumerInfosMap) return Promise.resolve();
     await Promise.all(_.map(this.consumerInfosMap, (consumerInfo: IEventConsumerInfo) => {

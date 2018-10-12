@@ -164,7 +164,7 @@ export class RPCService {
 
   public async purge() {
     try { fs.unlinkSync('./rpc.proc'); } catch (_e) {}
-    logger.info('stop serving');
+    logger.info('stop serving rpc');
     await this.unregisterAll();
 
     let precondition = Promise.resolve();
@@ -307,6 +307,10 @@ export class RPCService {
         if (this.is503(error)) return nackWithDelay(channel, msg);
         if (this.isCritical(error)) return this.shutdown();
         if (!noAck && msg) channel.ack(msg);
+      } finally {
+        if (this.purging && collector.getOnGoingRequestCount('rpc') < 1) {
+          this.purging();
+        }
       }
     };
     const opts = {
@@ -673,9 +677,6 @@ export class RPCService {
           throw err;
         } finally {
           collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId });
-          if (this.purging && collector.getOnGoingRequestCount('rpc') < 1) {
-            this.purging();
-          }
         }
       });
     });
