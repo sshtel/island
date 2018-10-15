@@ -85,13 +85,16 @@ $ npm i
 
 ## Tests
 
-  To run the test suite, first install the dependencies, then run `npm test`:
+  - To run the test suite, first install the dependencies
+  - And AMQP message broker server is required. RabbitMQ is recommended
+  - Then run `npm run coverage`
 
 ```bash
 $ npm i
-$ RABBITMQ_HOST=localhost npm t
+$ docker pull rabbitmq:latest
+$ docker run -d -p 5672:5672 --name rabbitmq rabbitmq
+$ RABBITMQ_HOST=amqp://localhost:5672 ISLAND_TRACEMQ_QUEUE=trace ISLAND_TRACEMQ_HOST=amqp://localhost:5672 ISLAND_LOGGER_LEVEL=crit npm run coverage
 ```
-
 
 ## Environment Variables
 
