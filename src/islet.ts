@@ -150,14 +150,15 @@ export default class Islet {
   private async initialize(opts: {SIGTERM?: boolean, SIGUSR2?: boolean} = { SIGTERM : true, SIGUSR2 : true }) {
     try {
       await this.onPrepare();
-      await Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize()));
+      await Promise.race([ Promise.all(_.values<IAbstractAdapter>(this.adapters).map(adapter => adapter.initialize())),
+                           this.timeout('initialize timeout', Environments.ISLAND_MAX_INITIALIZATION_TIME_MS)
+                         ]);
       if (opts.SIGTERM) process.once('SIGTERM', this.destroy.bind(this));
       if (opts.SIGUSR2) process.on('SIGUSR2', this.sigInfo.bind(this));
       bindImpliedServices(this.adapters);
       await this.onInitialized();
       const adapters = _.values<IAbstractAdapter>(this.adapters)
                         .filter(adapter => adapter instanceof ListenableAdapter) as IListenableAdapter[];
-
       await Promise.all(adapters.map(adapter => adapter.postInitialize()));
       await Promise.all(adapters.map(adapter => adapter.listen()));
 
@@ -194,5 +195,13 @@ export default class Islet {
       logger.debug('sigInfo : ', key);
       await adapter.sigInfo();
     }));
+  }
+
+  private async timeout(msg, millis) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        reject(`${msg} timeout ${millis} ms`);
+      }, millis);
+    });
   }
 }
