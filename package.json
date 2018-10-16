@@ -65,7 +65,6 @@
     "@types/restify": "^2.0.34",
     "@types/socket.io": "^1.4.27",
     "@types/uuid": "^2.0.29",
-    "@types/winston": "^0.0.32",
     "gulp": "^4.0.0",
     "island-build": "next",
     "jasmine-spec-reporter": "^4.2.1",
