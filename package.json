@@ -35,7 +35,7 @@
     "jsonwebtoken": "^8.2.0",
     "lodash": "^4.16.1",
     "mongodb-uri": "0.9.7",
-    "mongoose": "^4.6.1",
+    "mongoose": "4.7.3",
     "msgpack5": "^3.4.0",
     "qs": "^6.2.1",
     "redis": "^2.6.2",
