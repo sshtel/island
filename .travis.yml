@@ -10,7 +10,7 @@ install:
   - npm install
 
 env:
-  - RABBITMQ_HOST=amqp://localhost:5672 ISLAND_TRACEMQ_QUEUE=trace ISLAND_TRACEMQ_HOST=amqp://localhost:5672
+  - ISLAND_USE_DEV_MODE=true RABBITMQ_HOST=amqp://localhost:5672 ISLAND_TRACEMQ_QUEUE=trace ISLAND_TRACEMQ_HOST=amqp://localhost:5672
 
 before_script:
   - docker run -d -p 5672:5672 --name rabbitmq rabbitmq
