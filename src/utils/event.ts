@@ -136,13 +136,13 @@ export const DEFAULT_SUBSCRIPTIONS: EventSubscription<Event<any>, any>[] = [{
     options: {everyNodeListen: true}
   }, {
     eventClass: Events.SystemHealthCheck,
-    handler: async (event: Events.SystemHealthCheck) => {
+    async handler(event: Events.SystemHealthCheck) {
       if (!information.isSynced()) return;
       this.publishEvent(new Events.SystemInfo(information.getSystemInfo()));
     }
   }, {
-    eventClass: Events.SystemHealthCheck,
-    handler: async (event: Events.SystemEndpointCheck) => {
+    eventClass: Events.SystemEndpointCheck,
+    async handler(event: Events.SystemEndpointCheck) {
       const info = information.getSystemInfo();
       if (event.args.name !== info.name || !information.isSynced()) return;
       this.publishEvent(new Events.SystemEndpointInfo(information.getEndpoints()));
