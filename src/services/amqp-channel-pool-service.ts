@@ -2,7 +2,7 @@ import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
 import * as _ from 'lodash';
 import * as util from 'util';
-
+import { FatalError, ISLAND } from '../utils/error';
 import { logger } from '../utils/logger';
 
 export interface AmqpOptions {
@@ -22,7 +22,7 @@ export class AmqpChannelPoolService {
   private connection: amqp.Connection;
   private options: AmqpOptions;
   private idleChannelLength: number = 0;
-  private idleChannels: amqp.Channel[] = [];
+  private idleChannels: Promise<amqp.Channel>[] = [];
   private initResolver: Bluebird.Resolver<void>;
 
   constructor() {
@@ -62,13 +62,15 @@ export class AmqpChannelPoolService {
     if (this.idleChannelLength < this.options.poolSize!) {
       ++this.idleChannelLength;
       try {
-        this.idleChannels.push(await this.createChannel());
+        this.idleChannels.push(this.createChannel());
       } catch (e) {
         --this.idleChannelLength;
         throw e;
       }
     }
-    return _.sample(this.idleChannels)!;
+    const sample = _.sample(this.idleChannels)!;
+    if (!sample) throw new FatalError(ISLAND.ERROR.E0036_AMQP_CHANNEL_ACQUISITION_FAILED);
+    return sample;
   }
 
   async releaseChannel(channel: amqp.Channel, reusable: boolean = false): Promise<void> {
@@ -87,13 +89,13 @@ export class AmqpChannelPoolService {
   }
 
   private async createChannel(): Promise<amqp.Channel> {
-    const channel = await this.connection.createChannel();
+    const channel = Promise.resolve(this.connection.createChannel());
 
-    this.setChannelEventHandler(channel);
+    this.setChannelEventHandler(await channel);
     return channel;
   }
 
-  private setChannelEventHandler(channel: amqp.Channel) {
+  private async setChannelEventHandler(channel: amqp.Channel) {
     channel
       .on('error', err => {
         logger.notice('amqp channel error:', err);
@@ -101,9 +103,19 @@ export class AmqpChannelPoolService {
           logger.debug(err.stack);
         }
       })
-      .on('close', () => {
-        _.remove(this.idleChannels, channel);
-        --this.idleChannelLength;
+      .on('close', async () => {
+        await Promise.all(_.map(this.idleChannels, async obj => {
+          obj.then( value => {
+            if ( (value as any).ch === (channel as any).ch) {
+              (obj as any).terminate = true;
+            }
+          });
+        }));
+
+        await _.remove(this.idleChannels, obj => {
+          return (obj as any).terminate;
+        });
+
       });
   }
 }
