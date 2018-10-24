@@ -199,7 +199,6 @@ export namespace ISLAND {
     E0032_MSG_PACK_ERROR                      = 32,
     E0033_MSG_PACK_ENCODE_ERROR               = 33,
     E0034_HANDLE_MESSAGE_ERROR                = 34,
-    E0035_PUSH_ENCODE_ERROR                   = 35,
-    E0036_AMQP_CHANNEL_ACQUISITION_FAILED     = 36
+    E0035_PUSH_ENCODE_ERROR                   = 35
   }
 }

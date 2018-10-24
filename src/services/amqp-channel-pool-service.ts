@@ -2,7 +2,6 @@ import * as amqp from 'amqplib';
 import * as Bluebird from 'bluebird';
 import * as _ from 'lodash';
 import * as util from 'util';
-import { FatalError, ISLAND } from '../utils/error';
 import { logger } from '../utils/logger';
 
 export interface AmqpOptions {
@@ -68,9 +67,7 @@ export class AmqpChannelPoolService {
         throw e;
       }
     }
-    const sample = _.sample(this.idleChannels)!;
-    if (!sample) throw new FatalError(ISLAND.ERROR.E0036_AMQP_CHANNEL_ACQUISITION_FAILED);
-    return sample;
+    return _.sample(this.idleChannels)!;
   }
 
   async releaseChannel(channel: amqp.Channel, reusable: boolean = false): Promise<void> {
