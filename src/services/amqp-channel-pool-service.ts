@@ -109,10 +109,10 @@ export class AmqpChannelPoolService {
           });
         }));
 
-        await _.remove(this.idleChannels, obj => {
+        _.remove(this.idleChannels, obj => {
           return (obj as any).terminate;
         });
-
+        --this.idleChannelLength;
       });
   }
 }
