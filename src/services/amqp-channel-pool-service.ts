@@ -20,7 +20,6 @@ export class AmqpChannelPoolService {
 
   private connection: amqp.Connection;
   private options: AmqpOptions;
-  private idleChannelLength: number = 0;
   private idleChannels: Promise<amqp.Channel>[] = [];
   private initResolver: Bluebird.Resolver<void>;
 
@@ -53,17 +52,14 @@ export class AmqpChannelPoolService {
 
   async purge(): Promise<void> {
     this.idleChannels = [];
-    this.idleChannelLength = 0;
     return this.connection && this.connection.close();
   }
 
   async acquireChannel(): Promise<amqp.Channel> {
-    if (this.idleChannelLength < this.options.poolSize!) {
-      ++this.idleChannelLength;
+    if (this.idleChannels.length < this.options.poolSize!) {
       try {
         this.idleChannels.push(this.createChannel());
       } catch (e) {
-        --this.idleChannelLength;
         throw e;
       }
     }
@@ -108,11 +104,9 @@ export class AmqpChannelPoolService {
             }
           });
         }));
-
         _.remove(this.idleChannels, obj => {
           return (obj as any).terminate;
         });
-        --this.idleChannelLength;
       });
   }
 }
