@@ -2,9 +2,10 @@ import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 
 describe('AmqpChannelPool', () => {
-  const amqpChannelPool = new AmqpChannelPoolService();
+  let amqpChannelPool;
 
   beforeEach(spec(async () => {
+    amqpChannelPool = new AmqpChannelPoolService();
     return amqpChannelPool.initialize({
       url: process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672',
       poolSize: 3
@@ -24,16 +25,19 @@ describe('AmqpChannelPool', () => {
 
   it('can use channel disposer', spec(async () => {
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
       await channel.deleteExchange(xName);
     });
     expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(1);
   }));
 
   it('should remove the channel that got an error', spec(async () => {
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
 
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp.${+new Date()}`;
@@ -48,9 +52,11 @@ describe('AmqpChannelPool', () => {
       } catch (e) {}
     });
     expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(1);
   }));
 
   it('should not allow a miss in a race condition', spec(async () => {
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
     await Promise.all([
       amqpChannelPool.acquireChannel(),
@@ -59,5 +65,6 @@ describe('AmqpChannelPool', () => {
       amqpChannelPool.acquireChannel()
     ]);
     expect((amqpChannelPool as any).idleChannels.length).toEqual(3);
+    expect((amqpChannelPool as any).idleChannelLength).toEqual(3);
   }));
 });
