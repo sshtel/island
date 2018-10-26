@@ -43,7 +43,7 @@ async function main(args: string[]) {
         await handleEvent(channel, proc.queue, fileName, args);
         break;
 
-    case 'rpc':
+      case 'rpc':
         await handleRpc(channel, proc.queue, fileName, args, subCommand);
         break;
     }

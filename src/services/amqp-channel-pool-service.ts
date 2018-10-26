@@ -44,7 +44,7 @@ export class AmqpChannelPoolService {
           logger.info(`ignore process termination for ISLAND_USE_DEV_MODE`);
           return;
         }
-        process.exit(1);
+        process.kill(process.pid, 'SIGTERM');
       });
       connection.on('blocked', reason => {
         logger.info(`amqp connection blocked. reason: ${JSON.stringify(reason)}`);
@@ -52,7 +52,7 @@ export class AmqpChannelPoolService {
           logger.info(`ignore process termination for ISLAND_USE_DEV_MODE`);
           return;
         }
-        process.exit(1);
+        process.kill(process.pid, 'SIGTERM');
       });
 
       logger.info(`connected to ${options.url} for ${options.name}`);
