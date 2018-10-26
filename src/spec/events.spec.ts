@@ -16,4 +16,5 @@ describe('Events', () => {
     await eventSubscription.handler(new Events.Events.LoggerLevelChanged({category: 'island', level: 'info'}));
     expect(Loggers.getLevel('island')).toEqual('info');
   });
+
 });
