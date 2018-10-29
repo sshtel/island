@@ -25,24 +25,23 @@ describe('AmqpChannelPool', () => {
 
   it('can use channel disposer', spec(async () => {
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
       await channel.deleteExchange(xName);
     });
     expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(1);
   }));
 
   it('should remove the channel that got an error', spec(async () => {
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
 
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
     });
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp2.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
@@ -52,19 +51,36 @@ describe('AmqpChannelPool', () => {
       } catch (e) {}
     });
     expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(1);
   }));
 
   it('should not allow a miss in a race condition', spec(async () => {
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(0);
     expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
     await Promise.all([
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel()
     ]);
     expect((amqpChannelPool as any).idleChannels.length).toEqual(3);
-    expect((amqpChannelPool as any).idleChannelLength).toEqual(3);
   }));
+
+  it('should allow only one channel in a race condition when poolSize === 1', spec(async () => {
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
+    (amqpChannelPool as any).options.poolSize = 1;
+    await Promise.all([
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel()
+    ]);
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+  }));
+
 });
