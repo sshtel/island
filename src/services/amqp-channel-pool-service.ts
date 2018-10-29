@@ -35,6 +35,25 @@ export class AmqpChannelPoolService {
     logger.info(`connecting to broker ${util.inspect(options, { colors: true })}`);
     try {
       const connection = await amqp.connect(options.url, options.socketOptions);
+      connection.on('error', reason => {
+        logger.info(`amqp connection error occurred. reason: ${JSON.stringify(reason)}`);
+      });
+      connection.on('close', () => {
+        logger.info(`amqp connection closed.. terminate process`);
+        if (process.env.ISLAND_USE_DEV_MODE === 'true') {
+          logger.info(`ignore process termination for ISLAND_USE_DEV_MODE`);
+          return;
+        }
+        process.kill(process.pid, 'SIGTERM');
+      });
+      connection.on('blocked', reason => {
+        logger.info(`amqp connection blocked. reason: ${JSON.stringify(reason)}`);
+        if (process.env.ISLAND_USE_DEV_MODE === 'true') {
+          logger.info(`ignore process termination for ISLAND_USE_DEV_MODE`);
+          return;
+        }
+        process.kill(process.pid, 'SIGTERM');
+      });
 
       logger.info(`connected to ${options.url} for ${options.name}`);
       this.connection = connection;
