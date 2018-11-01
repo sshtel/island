@@ -288,8 +288,8 @@ describe('RPC(isolated test)', () => {
   }));
 
   it('should ensure the uuid of the error raised by the RPC which has been timed out', spec(async () => {
-    await rpcService.register('out', () => {
-      return rpcService.invoke('unmethod', 'arg');
+    await rpcService.register('out', async () => {
+      return await Bluebird.delay(1000);
     }, 'rpc');
     await rpcService.listen();
     try {
