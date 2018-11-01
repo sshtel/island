@@ -2,9 +2,10 @@ import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 
 describe('AmqpChannelPool', () => {
-  const amqpChannelPool = new AmqpChannelPoolService();
+  let amqpChannelPool;
 
   beforeEach(spec(async () => {
+    amqpChannelPool = new AmqpChannelPoolService();
     return amqpChannelPool.initialize({
       url: process.env.RABBITMQ_HOST || 'amqp://rabbitmq:5672',
       poolSize: 3
@@ -39,6 +40,8 @@ describe('AmqpChannelPool', () => {
       const xName = `spec.temp.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
     });
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+
     await amqpChannelPool.usingChannel(async channel => {
       const xName = `spec.temp2.${+new Date()}`;
       await channel.assertExchange(xName, 'fanout', {autoDelete: true});
@@ -56,8 +59,28 @@ describe('AmqpChannelPool', () => {
       amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
       amqpChannelPool.acquireChannel()
     ]);
     expect((amqpChannelPool as any).idleChannels.length).toEqual(3);
   }));
+
+  it('should allow only one channel in a race condition when poolSize === 1', spec(async () => {
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(0);
+    (amqpChannelPool as any).options.poolSize = 1;
+    await Promise.all([
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel(),
+      amqpChannelPool.acquireChannel()
+    ]);
+    expect((amqpChannelPool as any).idleChannels.length).toEqual(1);
+  }));
+
 });

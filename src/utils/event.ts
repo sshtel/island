@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import { Loggers } from 'island-loggers';
 import { BaseEvent, Event } from 'island-types';
-
+import * as _ from 'lodash';
 import { EventHandler, SubscriptionOptions } from '../services/event-subscriber';
+import { logger } from '../utils/logger';
 import { Endpoints, information } from './information';
 import { collector } from './status-collector';
 
@@ -51,6 +52,12 @@ export namespace Events {
 
     export interface SystemEndpointCheck {
       name: string;
+    }
+
+    export interface SystemEndpointConflict {
+      infos: { name: string;
+               endpoint: string;
+             }[];
     }
   }
 
@@ -101,6 +108,12 @@ export namespace Events {
       super('system.endpoint.check', args);
     }
   }
+
+  export class SystemEndpointConflict extends BaseEvent<Arguments.SystemEndpointConflict> {
+    constructor(args: Arguments.SystemEndpointConflict) {
+      super('system.endpoint.conflict', args);
+    }
+  }
 }
 
 export const DEFAULT_SUBSCRIPTIONS: EventSubscription<Event<any>, any>[] = [{
@@ -136,16 +149,25 @@ export const DEFAULT_SUBSCRIPTIONS: EventSubscription<Event<any>, any>[] = [{
     options: {everyNodeListen: true}
   }, {
     eventClass: Events.SystemHealthCheck,
-    handler: async (event: Events.SystemHealthCheck) => {
+    async handler(event: Events.SystemHealthCheck) {
       if (!information.isSynced()) return;
       this.publishEvent(new Events.SystemInfo(information.getSystemInfo()));
     }
   }, {
-    eventClass: Events.SystemHealthCheck,
-    handler: async (event: Events.SystemEndpointCheck) => {
+    eventClass: Events.SystemEndpointCheck,
+    async handler(event: Events.SystemEndpointCheck) {
       const info = information.getSystemInfo();
       if (event.args.name !== info.name || !information.isSynced()) return;
       this.publishEvent(new Events.SystemEndpointInfo(information.getEndpoints()));
+    }
+  }, {
+    eventClass: Events.SystemEndpointConflict,
+    async handler(event: Events.SystemEndpointConflict) {
+      const info = information.getSystemInfo();
+      if (!_.find(event.args.infos, o => o.name === info.name)) return;
+      event.args.infos.forEach(o => {
+        logger.warning(`Endpoint Conflict > island: ${o.name} endpoint: ${o.endpoint}` );
+      });
     }
   }
 ];
