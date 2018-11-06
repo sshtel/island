@@ -24,16 +24,16 @@ export default class MongooseAdapter extends AbstractAdapter<mongoose.Connection
    * @returns {Promise<void>}
    * @override
    */
-  public initialize() {
-    return new Promise<void>(async (resolve, reject) => {
-      if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
-      // Mongoose buffers all the commands until it's connected to the database.
-      // But make sure to the case of using a external mongodb connector
-      const uri = this.options.uri;
-      const connectionOptions = this.options.connectionOptions;
-      const address = await this.dnsLookup(uri);
-      logger.info(`connecting to mongo ${address} with ${util.inspect(connectionOptions, { colors: true })}`);
-      const connection = mongoose.createConnection(address, connectionOptions);
+  public async initialize() {
+    if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
+    // Mongoose buffers all the commands until it's connected to the database.
+    // But make sure to the case of using a external mongodb connector
+    const uri = this.options.uri;
+    const connectionOptions = this.options.connectionOptions;
+    const address = await this.dnsLookup(uri);
+    logger.info(`connecting to mongo ${address} with ${util.inspect(connectionOptions, { colors: true })}`);
+    const connection = mongoose.createConnection(address, connectionOptions);
+    return new Promise<void>((resolve, reject) => {
       connection.once('open', () => {
         logger.info(`connected to mongo ${address} with ${util.inspect(connectionOptions, { colors: true })}`);
         this._adaptee = connection;
