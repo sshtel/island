@@ -13,7 +13,7 @@
     "build": "gulp build",
     "watch": "gulp build && gulp watch",
     "clean": "gulp clean",
-    "test": "DEBUG=* ISLAND_LOGGER_LEVEL=crit gulp",
+    "test": "DEBUG=* ISLAND_USE_DEV_MODE=true ISLAND_LOGGER_LEVEL=crit gulp",
     "coverage": "gulp coverage"
   },
   "bin": {
