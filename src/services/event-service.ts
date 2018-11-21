@@ -5,11 +5,13 @@ import * as Bluebird from 'bluebird';
 import * as fs from 'fs';
 import { BaseEvent, Event } from 'island-types';
 import * as _ from 'lodash';
+import * as opentracing from 'opentracing';
 import * as uuid from 'uuid';
 
 import { Environments } from '../utils/environments';
 import { DEFAULT_SUBSCRIPTIONS, Events } from '../utils/event';
 import { logger } from '../utils/logger';
+import { OpentracingHelper } from '../utils/opentracing-helper';
 import reviver from '../utils/reviver';
 import { RouteLogger } from '../utils/route-logger';
 import { collector } from '../utils/status-collector';
@@ -65,12 +67,14 @@ export class EventService {
   private purging: Function | null = null;
   private consumerInfosMap: { [name: string]: IEventConsumerInfo } = {};
   private ignoreEventLogRegexp: RegExp | null = null;
+  private opentracingHelper: OpentracingHelper;
 
   constructor(serviceName: string) {
     this.serviceName = serviceName;
     this.roundRobinQ = `event.${serviceName}`;
     this.fanoutQ = `event.${serviceName}.node.${uuid.v4()}`;
     fs.writeFileSync('./event.proc', JSON.stringify({ status: 'initializing', queue: this.fanoutQ }));
+    this.opentracingHelper = new OpentracingHelper(this.serviceName);
   }
 
   async initialize(channelPool: AmqpChannelPoolService, consumerChannelPool?: AmqpChannelPoolService): Promise<any> {
@@ -155,9 +159,15 @@ export class EventService {
         protocol: 'EVENT',
         correlationId: uuid.v4()
       });
+
+    const span: opentracing.Span = this.opentracingHelper.startSpan(event.key, options.headers.extra.trace);
+    span.setTag('event', true);
+    span.setTag('event.type', 'publish');
+
     logger.debug(`publish ${event.key}`, JSON.stringify(event.args, null, 2), options.headers.tattoo);
     return Promise.resolve(Bluebird.try(() => new Buffer(JSON.stringify(event.args), 'utf8'))
       .then(content => {
+        span.finish();
         return this._publish(exchange, event.key, content, options);
       }));
   }
@@ -179,7 +189,8 @@ export class EventService {
           type: ns.get('Type')
         },
         extra: {
-          sessionType: ns.get('sessionType')
+          sessionType: ns.get('sessionType'),
+          trace: ns.get('trace') || {}
         }
       },
       timestamp: +event.publishedAt! || +new Date()
@@ -266,7 +277,14 @@ export class EventService {
         if (!this.ignoreEventLogRegexp || !msg.fields.routingKey.match(this.ignoreEventLogRegexp)) {
           logger.debug(`subscribe event : ${msg.fields.routingKey}`, content, msg.properties.headers);
         }
+
+        const span: opentracing.Span = this.opentracingHelper.startSpan(name, extra.trace);
+        span.setTag('event', true);
+        span.setTag('event.type', 'subscribe');
         return Bluebird.resolve(subscriber.handleEvent(content, msg))
+          .then(() => {
+            span.finish();
+          })
           .catch(async e => {
             if (!e.extra || typeof e.extra === 'object') {
               e.extra = _.assign({
@@ -275,6 +293,7 @@ export class EventService {
                 island: this.serviceName
               }, e.extra);
             }
+            this.opentracingHelper.error(span, e.message, e);
             throw await this.dohook(EventHookType.ERROR, e);
           });
       });

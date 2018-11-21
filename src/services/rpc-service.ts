@@ -5,6 +5,7 @@ import * as Bluebird from 'bluebird';
 import deprecated from 'deprecated-decorator';
 import * as fs from 'fs';
 import * as _ from 'lodash';
+import * as opentracing from 'opentracing';
 import * as os from 'os';
 import uuid = require('uuid');
 
@@ -21,6 +22,7 @@ import {
   mergeIslandJsError
 } from '../utils/error';
 import { logger } from '../utils/logger';
+import { OpentracingHelper } from '../utils/opentracing-helper';
 import reviver from '../utils/reviver';
 import { RouteLogger } from '../utils/route-logger';
 import { RpcOptions, RpcRequest } from '../utils/rpc-request';
@@ -120,12 +122,14 @@ export class RPCService {
   private purging: Function | null = null;
   private rpcEntities: RpcEntities = {};
   private queuesAvailableSince: number[] = _.range(Environments.getRpcDistribSize()).map(o => +new Date());
+  private opentracingHelper: OpentracingHelper;
 
   constructor(serviceName?: string) {
     this.serviceName = serviceName || 'unknown';
     this.hooks = {};
     this.responseQueueName = this.makeResponseQueueName();
     fs.writeFileSync('./rpc.proc', JSON.stringify({ status: 'initializing', queue: this.responseQueueName }));
+    this.opentracingHelper = new OpentracingHelper(this.serviceName);
   }
 
   public async initialize(channelPool: AmqpChannelPoolService, opts?: InitializeOptions): Promise<any> {
@@ -248,6 +252,7 @@ export class RPCService {
     name = name.trim();
     const routingKey = this.makeRoutingKey();
     const option = this.makeInvokeOption(name);
+
     const startTime: number = _.get(option.headers, 'startTime') || +new Date();
     const parent = _.get(option.headers, 'parent') || name;
     const consumedTime: number = +new Date() - startTime;
@@ -255,8 +260,13 @@ export class RPCService {
                             || Environments.ISLAND_RPC_EXEC_TIMEOUT_MS;
     const allowedExecTime: number = timeout - consumedTime;
     option.headers = _.defaults({}, {timeout, startTime, parent}, option.headers);
-    if (this.isGuaranteedExecTime(allowedExecTime))
+
+    const span: opentracing.Span = this.opentracingHelper.startSpan(name, option.headers.extra.trace);
+
+    if (this.isGuaranteedExecTime(allowedExecTime)) {
+      this.opentracingHelper.error(span, 'Time out', allowedExecTime);
       throw this.throwTimeout(name, option.correlationId!, allowedExecTime, parent, option.headers.tattoo);
+    }
     const p = this.waitResponse(option.correlationId!, (msg: Message) => {
       if (msg.properties && msg.properties.headers) {
         RouteLogger.replaceLogs('app', msg.properties.headers.extra.routeLogs);
@@ -266,15 +276,21 @@ export class RPCService {
         this.queuesAvailableSince[routingKey] = +new Date() + Environments.getFlowModeDelay();
       }
       const res = RpcResponse.decode(msg.content);
+      span.log({event: 'res.result', value: res.result});
+      span.log({event: 'body', value: res.body});
+      span.finish();
       if (res.result === false) throw res.body;
       if (_.get(opts, 'withRawdata')) return { body: res.body, raw: msg.content };
       return res.body;
     })
       .timeout(allowedExecTime)
-      .catch(Bluebird.TimeoutError, () => this.throwTimeout(name, option.correlationId!,
-                                                            allowedExecTime, parent, option.headers.tattoo))
+      .catch(Bluebird.TimeoutError, () => {
+        this.opentracingHelper.error(span, 'Time out', allowedExecTime);
+        this.throwTimeout(name, option.correlationId!, allowedExecTime, parent, option.headers.tattoo);
+      })
       .catch(err => {
         err.tattoo = option.headers.tattoo;
+        this.opentracingHelper.error(span, err.message, err);
         throw err;
       });
 
@@ -282,6 +298,7 @@ export class RPCService {
     try {
       await this.channelPool.usingChannel(async chan => chan.publish(name, routingKey, content, option));
     } catch (e) {
+      this.opentracingHelper.error(span, e.message, e);
       if (this.waitingResponse.has(option.correlationId!)) {
         this.waitingResponse.get(option.correlationId!)!.reject(e);
         this.waitingResponse.delete(option.correlationId!);
@@ -476,6 +493,7 @@ export class RPCService {
 
   private makeInvokeHeader(): any {
     const ns = cls.getNamespace('app');
+
     return {
       tattoo: ns.get('tattoo'),
       startTime: ns.get('startTime'),
@@ -489,7 +507,8 @@ export class RPCService {
       },
       extra: {
         sessionType: ns.get('sessionType'),
-        routeLogs: RouteLogger.getLogs('app')
+        routeLogs: RouteLogger.getLogs('app'),
+        trace: ns.get('trace') || {}
       }
     };
   }
