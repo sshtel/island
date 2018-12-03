@@ -20,7 +20,7 @@
     "diag": "dist/utils/diag-cli.js"
   },
   "dependencies": {
-    "amqplib": "^0.4.2",
+    "amqplib": "^0.5.3",
     "bluebird": "<3.0.0",
     "cls-bluebird": "^2.0.1",
     "cls-mongoose": "^2.0.1",
