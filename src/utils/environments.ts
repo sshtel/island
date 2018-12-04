@@ -181,7 +181,7 @@ export class IslandEnvironments {
                                       ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
                                       : this.ISLAND_RPC_EXEC_TIMEOUT_MS;
     this.ISLAND_RPC_WAIT_TIMEOUT_MS = this.ISLAND_RPC_WAIT_TIMEOUT_MS === 0
-                                      ? ms(this.ISLAND_RPC_EXEC_TIMEOUT)
+                                      ? ms(this.ISLAND_RPC_WAIT_TIMEOUT)
                                       : this.ISLAND_RPC_WAIT_TIMEOUT_MS;
     this.ISLAND_SERVICE_LOAD_TIME_MS = this.ISLAND_SERVICE_LOAD_TIME_MS === 0
                                        ? ms(this.ISLAND_SERVICE_LOAD_TIME)
