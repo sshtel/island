@@ -139,9 +139,7 @@ export class StatusCollector {
 
   public collectExecutedCountAndExecutedTime(type: string, name: string, options: CollectOptions) {
     if (!options.requestId) {
-      const stat: RequestStatistics = this.getStat(type, name);
-      ++stat.requestCount;
-      if (!options.err) ++stat.executedCount;
+      logger.warning(`Memory leak occurred. ${type} : ${name}`);
       return;
     }
 
