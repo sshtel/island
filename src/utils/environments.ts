@@ -165,8 +165,11 @@ export class IslandEnvironments {
   @env()
   public ISLAND_MAX_INITIALIZATION_TIME: string = '1m';
   public ISLAND_MAX_INITIALIZATION_TIME_MS: number = 0;
+<<<<<<< HEAD
 
   public VERSION: string = 'unknown';
+=======
+>>>>>>> origin/release-3.6
 
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
@@ -188,10 +191,15 @@ export class IslandEnvironments {
     this.ISLAND_FLOWMODE_DELAY = this.ISLAND_FLOWMODE_DELAY === 0
                                  ? ms(this.ISLAND_FLOWMODE_DELAY_TIME)
                                  : this.ISLAND_FLOWMODE_DELAY;
+<<<<<<< HEAD
     this.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ms(this.ISLAND_RPC_REPLY_MARGIN_TIME);
     this.ISLAND_MAX_INITIALIZATION_TIME_MS = ms(this.ISLAND_MAX_INITIALIZATION_TIME);
 
     this.setIslandInfoFromPackageJson();
+=======
+    this.ISLAND_MAX_INITIALIZATION_TIME_MS = ms(this.ISLAND_MAX_INITIALIZATION_TIME);
+
+>>>>>>> origin/release-3.6
     LoadEnv(this);
   }
 

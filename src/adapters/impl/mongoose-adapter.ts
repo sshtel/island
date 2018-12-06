@@ -25,7 +25,11 @@ export default class MongooseAdapter extends AbstractAdapter<mongoose.Connection
    * @override
    */
   public async initialize() {
+<<<<<<< HEAD
     if (!this.options) throw new FatalError(ISLAND.ERROR.E0025_MISSING_ADAPTER_OPTIONS);
+=======
+    if (!this.options) throw new FatalError(ISLAND.FATAL.F0025_MISSING_ADAPTER_OPTIONS);
+>>>>>>> origin/release-3.6
     // Mongoose buffers all the commands until it's connected to the database.
     // But make sure to the case of using a external mongodb connector
     const uri = this.options.uri;
