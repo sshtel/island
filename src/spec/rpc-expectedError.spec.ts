@@ -3,7 +3,7 @@ import * as Bluebird from 'bluebird';
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { RPCService } from '../services/rpc-service';
 import { Environments } from '../utils/environments';
-import { AbstractError, ExpectedError, FatalError, ISLAND } from '../utils/error';
+import { AbstractError, ExpectedError, FatalError, ISLAND, LogicError } from '../utils/error';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 
 // tslint:disable-next-line no-var-requires
@@ -63,7 +63,7 @@ describe('RPC(ExpectedError)', () => {
     await amqpChannelPool.purge();
   }));
 
-  it('rpc logs AbstractError', spec(async () => {
+  it('rpc logs FatalError', spec(async () => {
     await rpcService.register('testMethod', async msg => {
       expect(msg).toBe('hello');
       throw new FatalError(ISLAND.ERROR.E0035_PUSH_ENCODE_ERROR, 'FatalError');
@@ -78,6 +78,27 @@ describe('RPC(ExpectedError)', () => {
     if (result.errorObj) {
       expect(result.errorObj.code).toEqual(10010035);
       expect(result.errorObj.name).toEqual('FatalError');
+      expect(result.errorObj.extra.island).toBe('hehe');
+      expect(result.errorObj.extra.rpcName).toBe('testMethod');
+    }
+    expect(result.output.stderr[0]).toBeDefined();
+  }));
+
+  it('rpc logs LogicError', spec(async () => {
+    await rpcService.register('testMethod', async msg => {
+      expect(msg).toBe('hello');
+      throw new LogicError(ISLAND.ERROR.E0035_PUSH_ENCODE_ERROR, 'FatalError');
+    }, 'rpc');
+    await rpcService.listen();
+    const result = await mock(async () => {
+      await rpcService.invoke<string, string>('testMethod', 'hello', { timeout: 1500 } );
+    });
+    await rpcService.unregisterAll();
+    expect(result.errorObj).toBeDefined();
+    expect(result.errorObj instanceof AbstractError).toBeTruthy();
+    if (result.errorObj) {
+      expect(result.errorObj.code).toEqual(10010035);
+      expect(result.errorObj.name).toEqual('LogicError');
       expect(result.errorObj.extra.island).toBe('hehe');
       expect(result.errorObj.extra.rpcName).toBe('testMethod');
     }
