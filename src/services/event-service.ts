@@ -124,15 +124,15 @@ export class EventService {
   subscribeEvent<T extends Event<U>, U>(eventClass: new (args: U) => T,
                                         handler: EventHandler<T>,
                                         options?: SubscriptionOptions): Promise<void> {
-    return Promise.resolve(Bluebird.try(() => new EventSubscriber(handler, eventClass))
-      .then(subscriber => this.subscribe(subscriber, options)));
+    return Promise.resolve(Bluebird.try(() => new EventSubscriber(handler, eventClass, options || {}))
+      .then(subscriber => this.subscribe(subscriber)));
   }
 
   subscribePattern(pattern: string,
                    handler: EventHandler<Event<any>>,
                    options?: SubscriptionOptions): Promise<void> {
-    return Promise.resolve(Bluebird.try(() => new PatternSubscriber(handler, pattern))
-      .then(subscriber => this.subscribe(subscriber, options)));
+    return Promise.resolve(Bluebird.try(() => new PatternSubscriber(handler, pattern, options || {}))
+      .then(subscriber => this.subscribe(subscriber)));
   }
 
   publishEvent<T extends Event<U>, U>(exchange: string, event: T): Promise<any>;
@@ -266,6 +266,11 @@ export class EventService {
         if (!this.ignoreEventLogRegexp || !msg.fields.routingKey.match(this.ignoreEventLogRegexp)) {
           logger.debug(`subscribe event : ${msg.fields.routingKey}`, content, msg.properties.headers);
         }
+        if (subscriber.getOptions().guaranteeArrivalTime &&
+            Date.now() - (msg.properties.timestamp || Date.now()) > Environments.ISLAND_ALLOWED_ARRIVAL_TIME_MS) {
+          logger.info(`ignore event arrived late : ${msg.fields.routingKey}`);
+          return Bluebird.resolve();
+        }
         return Bluebird.resolve(subscriber.handleEvent(content, msg))
           .catch(async e => {
             if (!e.extra || typeof e.extra === 'object') {
@@ -282,8 +287,8 @@ export class EventService {
     return Promise.resolve(promise);
   }
 
-  private subscribe(subscriber: Subscriber, options?: SubscriptionOptions): Promise<void> {
-    options = options || {};
+  private subscribe(subscriber: Subscriber): Promise<void> {
+    const options = subscriber.getOptions();
     subscriber.setQueue(options.everyNodeListen && this.fanoutQ || this.roundRobinQ);
     return this.consumerChannelPool.usingChannel(channel => {
       return channel.bindQueue(subscriber.getQueue(), EventService.EXCHANGE_NAME, subscriber.getRoutingPattern());
