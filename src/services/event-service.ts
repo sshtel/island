@@ -267,7 +267,7 @@ export class EventService {
           logger.debug(`subscribe event : ${msg.fields.routingKey}`, content, msg.properties.headers);
         }
         if (subscriber.getOptions().guaranteeArrivalTime &&
-            Date.now() - (msg.properties.timestamp || Date.now()) > Environments.ISLAND_ALLOWED_ARRIVAL_TIME_MS) {
+            Date.now() - (msg.properties.timestamp || Date.now()) > Environments.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS) {
           logger.info(`ignore event arrived late : ${msg.fields.routingKey}`);
           return Bluebird.resolve();
         }

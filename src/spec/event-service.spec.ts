@@ -238,7 +238,7 @@ describe('Event-hook', () => {
       fail();
     }, { guaranteeArrivalTime: true });
     const event = new TestEvent('bbb');
-    event.publishedAt = new Date(Date.now() - Environments.ISLAND_ALLOWED_ARRIVAL_TIME_MS - 100);
+    event.publishedAt = new Date(Date.now() - Environments.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS - 100);
     await eventService.publishEvent(event);
     await eventService.sigInfo();
   }));
@@ -251,7 +251,7 @@ describe('Event-hook', () => {
       expect(event.args).toBe('xbbb');
     }, { guaranteeArrivalTime: false });
     const event = new TestEvent('bbb');
-    event.publishedAt = new Date(Date.now() - Environments.ISLAND_ALLOWED_ARRIVAL_TIME_MS - 100);
+    event.publishedAt = new Date(Date.now() - Environments.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS - 100);
     await eventService.publishEvent(event);
     await eventService.sigInfo();
   }));
