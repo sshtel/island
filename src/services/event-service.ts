@@ -123,15 +123,15 @@ export class EventService {
 
   subscribeEvent<T extends Event<U>, U>(eventClass: new (args: U) => T,
                                         handler: EventHandler<T>,
-                                        options?: SubscriptionOptions): Promise<void> {
-    return Promise.resolve(Bluebird.try(() => new EventSubscriber(handler, eventClass, options || {}))
+                                        options: SubscriptionOptions = {}): Promise<void> {
+    return Promise.resolve(Bluebird.try(() => new EventSubscriber(handler, eventClass, options))
       .then(subscriber => this.subscribe(subscriber)));
   }
 
   subscribePattern(pattern: string,
                    handler: EventHandler<Event<any>>,
-                   options?: SubscriptionOptions): Promise<void> {
-    return Promise.resolve(Bluebird.try(() => new PatternSubscriber(handler, pattern, options || {}))
+                   options: SubscriptionOptions = {}): Promise<void> {
+    return Promise.resolve(Bluebird.try(() => new PatternSubscriber(handler, pattern, options))
       .then(subscriber => this.subscribe(subscriber)));
   }
 
