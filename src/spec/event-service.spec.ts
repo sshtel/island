@@ -2,7 +2,7 @@ import { BaseEvent, DebugEvent } from 'island-types';
 
 import { AmqpChannelPoolService } from '../services/amqp-channel-pool-service';
 import { EventHookType, EventService } from '../services/event-service';
-import { PatternSubscriber } from '../services/event-subscriber';
+import { EventSubscriber, PatternSubscriber } from '../services/event-subscriber';
 import { Environments } from '../utils/environments';
 import { jasmineAsyncAdapter as spec } from '../utils/jasmine-async-support';
 
@@ -121,14 +121,14 @@ describe('PatternSubscriber', () => {
   describe('isRoutingKeyMatched', () => {
     it('should test a pattern with plain text', () => {
       const s = new PatternSubscriber(event => {
-      }, 'aaa.aaa.aaa');
+      }, 'aaa.aaa.aaa', {});
       expect(s.isRoutingKeyMatched('aaa.aaa.aaa')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa.aaa.bbb')).toBeFalsy();
     });
 
     it('should test a pattern using *', () => {
       const s = new PatternSubscriber(event => {
-      }, 'aaa.aaa.*');
+      }, 'aaa.aaa.*', {});
       expect(s.isRoutingKeyMatched('aaa.aaa.aaa')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa.aaa.bbb')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa.bbb.aaa')).toBeFalsy();
@@ -137,13 +137,45 @@ describe('PatternSubscriber', () => {
 
     it('should test a pattern using #', () => {
       const s = new PatternSubscriber(event => {
-      }, 'aaa.#');
+      }, 'aaa.#', {});
       expect(s.isRoutingKeyMatched('aaa.aaa.aaa')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa.bbb.bbb')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa.bbb')).toBeTruthy();
       expect(s.isRoutingKeyMatched('aaa')).toBeFalsy();
       expect(s.isRoutingKeyMatched('ccc.aaa.bbb')).toBeFalsy();
     });
+  });
+
+  it('should options saved in PatternSubscriber', () => {
+    const e1 = new PatternSubscriber(_event => {}, 'aaa.#',
+      { everyNodeListen: true, guaranteeArrivalTime: true });
+    expect(e1.getOptions().everyNodeListen).toBeTruthy();
+    expect(e1.getOptions().guaranteeArrivalTime).toBeTruthy();
+    const e2 = new PatternSubscriber(_event => {}, 'aaa.#',
+      { everyNodeListen: true, guaranteeArrivalTime: false });
+    expect(e2.getOptions().everyNodeListen).toBeTruthy();
+    expect(e2.getOptions().guaranteeArrivalTime).not.toBeTruthy();
+    const e3 = new PatternSubscriber(_event => {}, 'aaa.#',
+      { everyNodeListen: false, guaranteeArrivalTime: true });
+    expect(e3.getOptions().everyNodeListen).not.toBeTruthy();
+    expect(e3.getOptions().guaranteeArrivalTime).toBeTruthy();
+  });
+});
+
+describe('EventSubscriber', () => {
+  it('should options saved in EventSubscriber', () => {
+    const e1 = new EventSubscriber(_event => {}, TestEvent,
+      { everyNodeListen: true, guaranteeArrivalTime: true });
+    expect(e1.getOptions().everyNodeListen).toBeTruthy();
+    expect(e1.getOptions().guaranteeArrivalTime).toBeTruthy();
+    const e2 = new EventSubscriber(_event => {}, TestEvent,
+      { everyNodeListen: true, guaranteeArrivalTime: false });
+    expect(e2.getOptions().everyNodeListen).toBeTruthy();
+    expect(e2.getOptions().guaranteeArrivalTime).not.toBeTruthy();
+    const e3 = new EventSubscriber(_event => {}, TestEvent,
+      { everyNodeListen: false, guaranteeArrivalTime: true });
+    expect(e3.getOptions().everyNodeListen).not.toBeTruthy();
+    expect(e3.getOptions().guaranteeArrivalTime).toBeTruthy();
   });
 });
 
@@ -195,6 +227,32 @@ describe('Event-hook', () => {
       expect(event.args).toBe('xbbb');
     });
     await eventService.publishEvent(new TestEvent('bbb'));
+    await eventService.sigInfo();
+  }));
+
+  it('should Old event are ignored when the guaranteeArrivalTime option is used', spec(async () => {
+    eventService.registerHook(EventHookType.EVENT, p => {
+      return Promise.resolve('x' + p);
+    });
+    await eventService.subscribeEvent(TestEvent, (_event: TestEvent) => {
+      fail();
+    }, { guaranteeArrivalTime: true });
+    const event = new TestEvent('bbb');
+    event.publishedAt = new Date(Date.now() - Environments.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS - 100);
+    await eventService.publishEvent(event);
+    await eventService.sigInfo();
+  }));
+
+  it('should Old event are not ignored when the guaranteeArrivalTime option is false', spec(async () => {
+    eventService.registerHook(EventHookType.EVENT, p => {
+      return Promise.resolve('x' + p);
+    });
+    await eventService.subscribeEvent(TestEvent, (event: TestEvent) => {
+      expect(event.args).toBe('xbbb');
+    }, { guaranteeArrivalTime: false });
+    const event = new TestEvent('bbb');
+    event.publishedAt = new Date(Date.now() - Environments.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS - 100);
+    await eventService.publishEvent(event);
     await eventService.sigInfo();
   }));
 });

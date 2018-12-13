@@ -168,6 +168,9 @@ export class IslandEnvironments {
 
   public VERSION: string = 'unknown';
 
+  @env()
+  public ISLAND_EVENT_ALLOWED_ARRIVAL_TIME: string = '2s';
+  public ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS: number = 0;
   // @env()
   // public ISLAND_IGNORE_EVENT_LOG: string = '';
 
@@ -190,6 +193,8 @@ export class IslandEnvironments {
                                  : this.ISLAND_FLOWMODE_DELAY;
     this.ISLAND_RPC_REPLY_MARGIN_TIME_MS = ms(this.ISLAND_RPC_REPLY_MARGIN_TIME);
     this.ISLAND_MAX_INITIALIZATION_TIME_MS = ms(this.ISLAND_MAX_INITIALIZATION_TIME);
+
+    this.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME_MS = ms(this.ISLAND_EVENT_ALLOWED_ARRIVAL_TIME);
 
     this.setIslandInfoFromPackageJson();
     LoadEnv(this);
