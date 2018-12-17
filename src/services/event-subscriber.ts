@@ -19,6 +19,7 @@ export abstract class Subscriber {
   abstract getRoutingPattern(): string;
   abstract isRoutingKeyMatched(routingKey: string): boolean;
   abstract handleEvent(content: any, msg: Message): Promise<any>;
+  abstract getOptions(): SubscriptionOptions;
 }
 
 export class EventSubscriber extends Subscriber {
@@ -26,7 +27,8 @@ export class EventSubscriber extends Subscriber {
   private queue: string;
 
   constructor(private handler: EventHandler<Event<any>>,
-              private eventClass: new (args: any) => Event<any>) {
+              private eventClass: new (args: any) => Event<any>,
+              private options: SubscriptionOptions) {
     super();
     const event = new eventClass(null);
     this.key = event.key.trim();
@@ -52,6 +54,10 @@ export class EventSubscriber extends Subscriber {
     return routingKey === this.key;
   }
 
+  getOptions(): SubscriptionOptions {
+    return this.options || {};
+  }
+
   handleEvent(content: any, msg: Message): Promise<any> {
     const event = new this.eventClass(content);
     event.publishedAt = new Date(msg.properties.timestamp || 0);
@@ -64,7 +70,8 @@ export class PatternSubscriber extends Subscriber {
   private queue: string;
 
   constructor(private handler: EventHandler<Event<any>>,
-              private pattern: string) {
+              private pattern: string,
+              private options: SubscriptionOptions) {
     super();
     this.regExp = this.convertRoutingKeyPatternToRegexp(pattern);
   }
@@ -83,6 +90,10 @@ export class PatternSubscriber extends Subscriber {
 
   isRoutingKeyMatched(routingKey: string): boolean {
     return this.regExp.test(routingKey);
+  }
+
+  getOptions(): SubscriptionOptions {
+    return this.options || {};
   }
 
   handleEvent(content: any, msg: Message): Promise<any> {
@@ -104,4 +115,5 @@ export class PatternSubscriber extends Subscriber {
 
 export interface SubscriptionOptions {
   everyNodeListen?: boolean;
+  guaranteeArrivalTime?: boolean;
 }

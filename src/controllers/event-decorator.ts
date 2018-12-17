@@ -1,6 +1,5 @@
 import * as Bluebird from 'bluebird';
 import { Event } from 'island-types';
-
 import { EventHandler, SubscriptionOptions } from '../services/event-subscriber';
 import { EventSubscription } from '../utils/event';
 import AbstractController from './abstract-controller';
@@ -51,7 +50,7 @@ export function subscribeEvent<T extends Event<U>, U>(eventClass: new (args: U) 
 }
 
 export function subscribePattern(pattern: string, options?: SubscriptionOptions) {
-  return (target: any, propertyKey: string, desc: PropertyDescriptor) => {
+  return (target: any, _key: string, desc: PropertyDescriptor) => {
     pattern = pattern.trim();
     const constructor = target.constructor as Function & PatternSubscriptionContainer;
     constructor._patternSubscriptions = constructor._patternSubscriptions || [];
