@@ -673,7 +673,10 @@ export class RPCService {
             .then(err => this.reply(replyTo, err, options))
             .then(err => this.dohook('post-error', type, err))
             .tap (() => collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId, err }))
-            .tap (err => this.logRpcError(err));
+            .tap (err => {
+              if (err.name === 'ExpectedError') return;
+              this.logRpcError(err);
+            });
           throw err;
         } finally {
           collector.collectExecutedCountAndExecutedTime(type, rpcName, { requestId });
