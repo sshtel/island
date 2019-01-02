@@ -117,7 +117,7 @@ export class AmqpChannelPoolService {
       })
       .on('close', async () => {
         await Promise.all(_.map(this.idleChannels, async obj => {
-          obj.then( value => {
+          return obj.then( value => {
             if ( (value as any).ch === (channel as any).ch) {
               (obj as any).terminate = true;
             }
