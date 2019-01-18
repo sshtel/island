@@ -4,11 +4,29 @@ set -e
 if [ "$1" = "--help" ]; then
 	echo "--help"
 	echo "--version"
+	echo "--rpc"
+	echo "--endpoint"
+	echo "--env"
 	exit
 fi
 
 if [ "$1" = "--version" ]; then
 	node ./ver.js
+	exit
+fi
+
+if [ "$1" = "--rpc" ]; then
+	node info.js rpc
+	exit
+fi
+
+if [ "$1" = "--endpoint" ]; then
+	node info.js endpoint
+	exit
+fi
+
+if [ "$1" = "--env" ]; then
+	node info.js env
 	exit
 fi
 
